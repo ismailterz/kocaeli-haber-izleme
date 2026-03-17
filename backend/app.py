@@ -1,0 +1,70 @@
+"""
+Flask uygulama giriş noktası.
+Scheduler ile otomatik scraping entegrasyonu.
+"""
+
+import threading
+import schedule
+import time
+
+from flask import Flask, send_from_directory
+from flask_cors import CORS
+
+from config import Config
+from routes.api import api_bp
+
+
+def create_app():
+    app = Flask(__name__, static_folder="../frontend", static_url_path="")
+    CORS(app)
+
+    app.register_blueprint(api_bp)
+
+    @app.route("/")
+    def index():
+        import os
+        path = os.path.join(app.static_folder, "index.html")
+        with open(path, "r", encoding="utf-8") as f:
+            html = f.read()
+        key = Config.GOOGLE_MAPS_API_KEY or ""
+        html = html.replace("GOOGLE_MAPS_API_KEY", key)
+        return html
+
+    @app.route("/<path:path>")
+    def serve_static(path):
+        return send_from_directory(app.static_folder, path)
+
+    return app
+
+
+def run_scraping_job():
+    print("[Scheduler] Otomatik scraping başlatılıyor...")
+    try:
+        from services.scraping_pipeline import ScrapingPipeline
+        pipeline = ScrapingPipeline()
+        pipeline.run()
+    except Exception as e:
+        print(f"[Scheduler] Scraping hatası: {e}")
+
+
+def start_scheduler():
+    schedule.every(6).hours.do(run_scraping_job)
+
+    def scheduler_loop():
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+
+    thread = threading.Thread(target=scheduler_loop, daemon=True)
+    thread.start()
+    print("[Scheduler] Zamanlayıcı başlatıldı (6 saatte bir)")
+
+
+if __name__ == "__main__":
+    app = create_app()
+    start_scheduler()
+    app.run(
+        host="0.0.0.0",
+        port=Config.FLASK_PORT,
+        debug=Config.FLASK_DEBUG
+    )

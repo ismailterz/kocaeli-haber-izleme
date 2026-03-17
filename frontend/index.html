@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kocaeli Haber Haritası</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231a73e8'><path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sol Panel -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">
+                    <span class="material-icons-round">map</span>
+                    Kocaeli Haber Haritası
+                </h1>
+            </div>
+
+            <!-- Tarih Filtresi -->
+            <div class="filter-section">
+                <h3 class="filter-title">
+                    <span class="material-icons-round">calendar_today</span>
+                    Tarih Aralığı
+                </h3>
+                <div class="date-inputs">
+                    <input type="date" id="startDate" class="date-input" placeholder="Başlangıç">
+                    <span class="date-separator">—</span>
+                    <input type="date" id="endDate" class="date-input" placeholder="Bitiş">
+                </div>
+            </div>
+
+            <!-- Olay Türü Filtresi -->
+            <div class="filter-section">
+                <h3 class="filter-title">
+                    <span class="material-icons-round">category</span>
+                    Olay Türü
+                </h3>
+                <div class="category-filters" id="categoryFilters">
+                    <label class="category-checkbox">
+                        <input type="checkbox" value="Trafik Kazası" checked>
+                        <span class="category-icon" style="background: #e74c3c;">
+                            <span class="material-icons-round">directions_car</span>
+                        </span>
+                        <span class="category-label">Trafik Kazası</span>
+                    </label>
+                    <label class="category-checkbox">
+                        <input type="checkbox" value="Yangın" checked>
+                        <span class="category-icon" style="background: #e67e22;">
+                            <span class="material-icons-round">local_fire_department</span>
+                        </span>
+                        <span class="category-label">Yangın</span>
+                    </label>
+                    <label class="category-checkbox">
+                        <input type="checkbox" value="Elektrik Kesintisi" checked>
+                        <span class="category-icon" style="background: #f1c40f;">
+                            <span class="material-icons-round">flash_off</span>
+                        </span>
+                        <span class="category-label">Elektrik Kesintisi</span>
+                    </label>
+                    <label class="category-checkbox">
+                        <input type="checkbox" value="Hırsızlık" checked>
+                        <span class="category-icon" style="background: #8e44ad;">
+                            <span class="material-icons-round">warning</span>
+                        </span>
+                        <span class="category-label">Hırsızlık</span>
+                    </label>
+                    <label class="category-checkbox">
+                        <input type="checkbox" value="Kültürel Etkinlikler" checked>
+                        <span class="category-icon" style="background: #2ecc71;">
+                            <span class="material-icons-round">celebration</span>
+                        </span>
+                        <span class="category-label">Kültürel Etkinlikler</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- İlçe Filtresi -->
+            <div class="filter-section">
+                <h3 class="filter-title">
+                    <span class="material-icons-round">location_city</span>
+                    İlçe
+                </h3>
+                <select id="districtFilter" class="district-select">
+                    <option value="">Tüm İlçeler</option>
+                </select>
+            </div>
+
+            <!-- Filtrele Butonu -->
+            <button class="filter-btn" id="filterBtn">
+                <span class="material-icons-round">filter_alt</span>
+                Filtrele
+            </button>
+            <button class="filter-btn secondary" id="resetBtn">
+                <span class="material-icons-round">restart_alt</span>
+                Sıfırla
+            </button>
+
+            <!-- İstatistikler -->
+            <div class="stats-section" id="statsSection">
+                <h3 class="filter-title">
+                    <span class="material-icons-round">analytics</span>
+                    İstatistikler
+                </h3>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+
+            <!-- Son Haberler -->
+            <div class="news-list-section">
+                <h3 class="filter-title">
+                    <span class="material-icons-round">article</span>
+                    Son Haberler
+                </h3>
+                <div class="news-list" id="newsList">
+                    <div class="loading">Haberler yükleniyor...</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Harita -->
+        <main class="map-container">
+            <div id="map"></div>
+            <!-- Mobil menü butonu -->
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <span class="material-icons-round">menu</span>
+            </button>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=GOOGLE_MAPS_API_KEY&callback=initMap&language=tr">
+    </script>
+</body>
+</html>
