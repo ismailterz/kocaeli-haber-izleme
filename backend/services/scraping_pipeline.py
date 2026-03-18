@@ -5,8 +5,6 @@ Scraping → Temizleme → Sınıflandırma → Konum Çıkarımı → Geocoding
 
 from datetime import datetime
 
-import random
-
 from scraper.common_cms_scraper import (
     CagdasKocaeliScraper,
     OzgurKocaeliScraper,
@@ -21,7 +19,6 @@ from services.geocoding_service import GeocodingService
 from services.duplicate_detector import DuplicateDetector
 from services.database_service import DatabaseService
 from models.news import NewsModel
-from config import Config
 
 
 class ScrapingPipeline:
@@ -104,27 +101,16 @@ class ScrapingPipeline:
         location_info = LocationExtractor.extract(title, content)
 
         coordinates = None
-        district = None
-
         if location_info:
-            district = location_info.get("district")
             geo_result = self.geocoding_service.geocode(location_info["text"])
             if geo_result:
                 coordinates = geo_result
 
-        if not coordinates:
-            coordinates = self._get_fallback_coordinates(district)
-
-        if not district:
-            district = self._guess_district_from_text(title, content)
-            if district and not coordinates:
-                coordinates = self._get_fallback_coordinates(district)
-
         location = NewsModel.create_location(
-            text=location_info["text"] if location_info else (f"{district}, Kocaeli" if district else "Kocaeli"),
-            district=district,
-            latitude=coordinates["latitude"] if coordinates else Config.KOCAELI_CENTER["lat"],
-            longitude=coordinates["longitude"] if coordinates else Config.KOCAELI_CENTER["lng"],
+            text=location_info["text"] if location_info else None,
+            district=location_info["district"] if location_info else None,
+            latitude=coordinates["latitude"] if coordinates else None,
+            longitude=coordinates["longitude"] if coordinates else None,
         )
 
         source_doc = NewsModel.create_source(
@@ -161,25 +147,3 @@ class ScrapingPipeline:
         stats["new_articles"] += 1
         site_stats["new"] += 1
         print(f"  [Yeni] Kaydedildi: '{title[:50]}...' [{category.value}]")
-
-    @staticmethod
-    def _get_fallback_coordinates(district: str | None) -> dict | None:
-        if not district:
-            return None
-        center = Config.DISTRICT_CENTERS.get(district)
-        if not center:
-            return None
-        offset_lat = random.uniform(-0.008, 0.008)
-        offset_lng = random.uniform(-0.008, 0.008)
-        return {
-            "latitude": center["lat"] + offset_lat,
-            "longitude": center["lng"] + offset_lng,
-        }
-
-    @staticmethod
-    def _guess_district_from_text(title: str, content: str) -> str | None:
-        combined = f"{title} {content}".lower()
-        for district in Config.KOCAELI_DISTRICTS:
-            if district.lower() in combined:
-                return district
-        return None

@@ -69,11 +69,11 @@ function initMap() {
 
 function setDefaultDates() {
     const now = new Date();
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const threeDaysAgo = new Date(now);
+    threeDaysAgo.setDate(now.getDate() - 3);
 
     document.getElementById("endDate").value = formatDateForInput(now);
-    document.getElementById("startDate").value = formatDateForInput(thirtyDaysAgo);
+    document.getElementById("startDate").value = formatDateForInput(threeDaysAgo);
 }
 
 function formatDateForInput(date) {
@@ -170,7 +170,7 @@ async function loadAndDisplayNews() {
         filteredMapData.forEach((news) => addMarker(news));
     }
 
-    const listResult = await apiCall("/news", { ...filters, limit: 200 });
+    const listResult = await apiCall("/news", { ...filters, limit: 50 });
     if (listResult && listResult.data) {
         const filteredListData = listResult.data.filter((news) =>
             selectedCategories.includes(news.category)
@@ -188,22 +188,18 @@ function addMarker(news) {
     const [lng, lat] = coords;
     const config = CATEGORY_CONFIG[news.category] || CATEGORY_CONFIG["Trafik Kazası"];
 
-    const markerIcon = {
-        path: config.markerPath,
-        fillColor: config.color,
-        fillOpacity: 1,
-        strokeColor: "#fff",
-        strokeWeight: 1.5,
-        scale: 1.4,
-        anchor: new google.maps.Point(12, 22),
-        labelOrigin: new google.maps.Point(12, 9),
-    };
-
     const marker = new google.maps.Marker({
         position: { lat, lng },
         map: map,
         title: news.title,
-        icon: markerIcon,
+        icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: config.color,
+            fillOpacity: 0.9,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+            scale: 10,
+        },
         animation: google.maps.Animation.DROP,
     });
 
