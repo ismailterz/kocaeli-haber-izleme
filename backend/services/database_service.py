@@ -3,6 +3,7 @@ MongoDB veritabanı katmanı.
 CRUD işlemleri ve indeksler.
 """
 
+import random
 from datetime import datetime, timedelta
 from bson import ObjectId
 from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
@@ -143,6 +144,50 @@ class DatabaseService:
             filters={"start_date": since},
             limit=limit
         )
+
+    def backfill_missing_coordinates(self) -> dict:
+        """Koordinatı olmayan tüm haberlere ilçe merkezi veya Kocaeli merkezi koordinatı atar."""
+        stats = {"updated": 0, "already_ok": 0, "no_fix": 0}
+
+        for doc in self.db.news.find({}, {"_id": 1, "title": 1, "content": 1, "location": 1}):
+            loc = doc.get("location") or {}
+            coords = loc.get("coordinates")
+            if coords and coords.get("coordinates"):
+                stats["already_ok"] += 1
+                continue
+
+            district = loc.get("district")
+            if not district:
+                combined = f"{doc.get('title', '')} {doc.get('content', '')}".lower()
+                for d in Config.KOCAELI_DISTRICTS:
+                    if d.lower() in combined:
+                        district = d
+                        break
+
+            if district:
+                center = Config.DISTRICT_CENTERS.get(district)
+                if center:
+                    lat = center["lat"] + random.uniform(-0.008, 0.008)
+                    lng = center["lng"] + random.uniform(-0.008, 0.008)
+                else:
+                    lat = Config.KOCAELI_CENTER["lat"] + random.uniform(-0.01, 0.01)
+                    lng = Config.KOCAELI_CENTER["lng"] + random.uniform(-0.01, 0.01)
+            else:
+                lat = Config.KOCAELI_CENTER["lat"] + random.uniform(-0.015, 0.015)
+                lng = Config.KOCAELI_CENTER["lng"] + random.uniform(-0.015, 0.015)
+                district = None
+
+            new_coords = {"type": "Point", "coordinates": [lng, lat]}
+            update = {"$set": {"location.coordinates": new_coords, "updated_at": datetime.now()}}
+            if district and not loc.get("district"):
+                update["$set"]["location.district"] = district
+            if not loc.get("text"):
+                update["$set"]["location.text"] = f"{district}, Kocaeli" if district else "Kocaeli"
+
+            self.db.news.update_one({"_id": doc["_id"]}, update)
+            stats["updated"] += 1
+
+        return stats
 
     def clear_all(self):
         self.db.news.drop()

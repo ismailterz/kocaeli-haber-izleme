@@ -60,8 +60,19 @@ def start_scheduler():
     print("[Scheduler] Zamanlayıcı başlatıldı (6 saatte bir)")
 
 
+def backfill_coordinates():
+    try:
+        from services.database_service import DatabaseService
+        db = DatabaseService()
+        result = db.backfill_missing_coordinates()
+        print(f"[Backfill] Koordinat güncelleme: {result}")
+    except Exception as e:
+        print(f"[Backfill] Hata: {e}")
+
+
 if __name__ == "__main__":
     app = create_app()
+    backfill_coordinates()
     start_scheduler()
     app.run(
         host="0.0.0.0",

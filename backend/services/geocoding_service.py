@@ -3,6 +3,8 @@ Geocoding servisi.
 Konum metninden koordinat dönüşümü yapar. Aynı konum için cache kullanır.
 """
 
+import time
+
 from geopy.geocoders import Nominatim, GoogleV3
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from pymongo import MongoClient
@@ -55,6 +57,9 @@ class GeocodingService:
         cached = self._get_cached(location_text)
         if cached:
             return cached
+
+        if self.provider != "google":
+            time.sleep(1.1)
 
         try:
             location = self.geocoder.geocode(
