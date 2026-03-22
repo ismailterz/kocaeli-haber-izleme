@@ -3,6 +3,7 @@ MongoDB veritabanı katmanı.
 CRUD işlemleri ve indeksler.
 """
 
+import random
 from datetime import datetime, timedelta
 from bson import ObjectId
 from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
@@ -102,6 +103,11 @@ class DatabaseService:
 
         results = []
         for doc in cursor:
+            coords = doc.get("location", {}).get("coordinates", {}).get("coordinates", [])
+            if coords and len(coords) >= 2:
+                lng, lat = coords
+                if not self._is_on_land(lat, lng):
+                    continue
             doc["_id"] = str(doc["_id"])
             results.append(doc)
         return results
@@ -143,6 +149,51 @@ class DatabaseService:
             filters={"start_date": since},
             limit=limit
         )
+
+    def fix_sea_coordinates(self) -> dict:
+        """Deniz üzerine düşen koordinatları ilçe merkezine taşır."""
+        stats = {"fixed": 0, "removed": 0, "ok": 0}
+        for doc in self.db.news.find({"location.coordinates": {"$ne": None}},
+                                     {"_id": 1, "location": 1}):
+            coords = doc.get("location", {}).get("coordinates", {})
+            if not coords or not coords.get("coordinates"):
+                continue
+            lng, lat = coords["coordinates"]
+            if self._is_on_land(lat, lng):
+                stats["ok"] += 1
+                continue
+
+            district = doc.get("location", {}).get("district")
+            if district:
+                center = Config.DISTRICT_CENTERS.get(district)
+                if center:
+                    new_lat = center["lat"] + random.uniform(-0.005, 0.005)
+                    new_lng = center["lng"] + random.uniform(-0.005, 0.005)
+                    self.db.news.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"location.coordinates.coordinates": [new_lng, new_lat]}}
+                    )
+                    stats["fixed"] += 1
+                    continue
+
+            self.db.news.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"location.coordinates": None}}
+            )
+            stats["removed"] += 1
+
+        return stats
+
+    @staticmethod
+    def _is_on_land(lat: float, lng: float) -> bool:
+        if not ((40.4 <= lat <= 41.2) and (29.2 <= lng <= 30.5)):
+            return False
+        if 29.35 <= lng <= 29.97:
+            south = 40.700 + (lng - 29.35) * 0.025
+            north = 40.745 + (lng - 29.35) * 0.03
+            if south < lat < north:
+                return False
+        return True
 
     def clear_all(self):
         self.db.news.drop()

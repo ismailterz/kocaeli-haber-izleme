@@ -3,6 +3,7 @@ Scraping Pipeline - Tüm süreçleri birleştiren ana pipeline.
 Scraping → Temizleme → Sınıflandırma → Konum Çıkarımı → Geocoding → Duplicate → DB
 """
 
+import random
 from datetime import datetime
 
 from scraper.common_cms_scraper import (
@@ -19,6 +20,7 @@ from services.geocoding_service import GeocodingService
 from services.duplicate_detector import DuplicateDetector
 from services.database_service import DatabaseService
 from models.news import NewsModel
+from config import Config
 
 
 class ScrapingPipeline:
@@ -101,14 +103,25 @@ class ScrapingPipeline:
         location_info = LocationExtractor.extract(title, content)
 
         coordinates = None
+        district = None
+
         if location_info:
+            district = location_info.get("district")
             geo_result = self.geocoding_service.geocode(location_info["text"])
             if geo_result:
                 coordinates = geo_result
 
+        if not coordinates and district:
+            center = Config.DISTRICT_CENTERS.get(district)
+            if center:
+                coordinates = {
+                    "latitude": center["lat"] + random.uniform(-0.005, 0.005),
+                    "longitude": center["lng"] + random.uniform(-0.005, 0.005),
+                }
+
         location = NewsModel.create_location(
             text=location_info["text"] if location_info else None,
-            district=location_info["district"] if location_info else None,
+            district=district,
             latitude=coordinates["latitude"] if coordinates else None,
             longitude=coordinates["longitude"] if coordinates else None,
         )

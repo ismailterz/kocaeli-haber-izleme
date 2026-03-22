@@ -3,6 +3,8 @@ Geocoding servisi.
 Konum metninden koordinat dönüşümü yapar. Aynı konum için cache kullanır.
 """
 
+import time
+
 from geopy.geocoders import Nominatim, GoogleV3
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from pymongo import MongoClient
@@ -54,7 +56,12 @@ class GeocodingService:
 
         cached = self._get_cached(location_text)
         if cached:
-            return cached
+            if self._is_on_land(cached["latitude"], cached["longitude"]):
+                return cached
+            return None
+
+        if self.provider != "google":
+            time.sleep(1.1)
 
         try:
             location = self.geocoder.geocode(
@@ -69,6 +76,8 @@ class GeocodingService:
 
                 if not self._is_in_kocaeli_region(lat, lng):
                     kocaeli_text = f"{location_text}, Kocaeli, Türkiye"
+                    if self.provider != "google":
+                        time.sleep(1.1)
                     location = self.geocoder.geocode(
                         kocaeli_text,
                         exactly_one=True,
@@ -78,7 +87,7 @@ class GeocodingService:
                         lat = location.latitude
                         lng = location.longitude
 
-                if location:
+                if location and self._is_on_land(lat, lng):
                     self._set_cache(location_text, lat, lng)
                     return {"latitude": lat, "longitude": lng}
 
@@ -92,3 +101,14 @@ class GeocodingService:
     @staticmethod
     def _is_in_kocaeli_region(lat: float, lng: float) -> bool:
         return (40.4 <= lat <= 41.1) and (29.2 <= lng <= 30.4)
+
+    @staticmethod
+    def _is_on_land(lat: float, lng: float) -> bool:
+        if not ((40.4 <= lat <= 41.2) and (29.2 <= lng <= 30.5)):
+            return False
+        if 29.35 <= lng <= 29.97:
+            south = 40.700 + (lng - 29.35) * 0.025
+            north = 40.745 + (lng - 29.35) * 0.03
+            if south < lat < north:
+                return False
+        return True

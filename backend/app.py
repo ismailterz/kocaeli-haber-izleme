@@ -20,6 +20,12 @@ def create_app():
 
     app.register_blueprint(api_bp)
 
+    @app.after_request
+    def add_no_cache(response):
+        if response.content_type and ("javascript" in response.content_type or "text/html" in response.content_type):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
     @app.route("/")
     def index():
         import os
@@ -60,8 +66,19 @@ def start_scheduler():
     print("[Scheduler] Zamanlayıcı başlatıldı (6 saatte bir)")
 
 
+def fix_coordinates_on_startup():
+    try:
+        from services.database_service import DatabaseService
+        db = DatabaseService()
+        result = db.fix_sea_coordinates()
+        print(f"[Startup] Koordinat kontrolü: {result}")
+    except Exception as e:
+        print(f"[Startup] Koordinat düzeltme hatası: {e}")
+
+
 if __name__ == "__main__":
     app = create_app()
+    fix_coordinates_on_startup()
     start_scheduler()
     app.run(
         host="0.0.0.0",

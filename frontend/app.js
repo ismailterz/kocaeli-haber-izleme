@@ -61,10 +61,10 @@ function initMap() {
 
     infoWindow = new google.maps.InfoWindow();
 
+    setDefaultDates();
     loadDistricts();
     loadStats();
     loadAndDisplayNews();
-    setDefaultDates();
 }
 
 function setDefaultDates() {
@@ -181,11 +181,23 @@ async function loadAndDisplayNews() {
     loadStats();
 }
 
+function isOnLand(lat, lng) {
+    if (lat < 40.4 || lat > 41.2 || lng < 29.2 || lng > 30.5) return false;
+    if (lng >= 29.35 && lng <= 29.97) {
+        const south = 40.700 + (lng - 29.35) * 0.025;
+        const north = 40.745 + (lng - 29.35) * 0.03;
+        if (lat > south && lat < north) return false;
+    }
+    return true;
+}
+
 function addMarker(news) {
     const coords = news.location?.coordinates?.coordinates;
     if (!coords || coords.length < 2) return;
 
     const [lng, lat] = coords;
+    if (!isOnLand(lat, lng)) return;
+
     const config = CATEGORY_CONFIG[news.category] || CATEGORY_CONFIG["Trafik Kazası"];
 
     const marker = new google.maps.Marker({

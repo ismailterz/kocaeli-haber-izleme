@@ -33,3 +33,18 @@ class Config:
         "lat": 40.7654,
         "lng": 29.9408
     }
+
+    DISTRICT_CENTERS = {
+        "İzmit":      {"lat": 40.7750, "lng": 29.9500},
+        "Gebze":      {"lat": 40.8027, "lng": 29.4307},
+        "Darıca":     {"lat": 40.7693, "lng": 29.3725},
+        "Körfez":     {"lat": 40.7900, "lng": 29.7600},
+        "Gölcük":     {"lat": 40.6700, "lng": 29.8200},
+        "Başiskele":  {"lat": 40.6900, "lng": 29.8900},
+        "Kartepe":    {"lat": 40.6849, "lng": 30.0536},
+        "Çayırova":   {"lat": 40.8258, "lng": 29.3750},
+        "Dilovası":   {"lat": 40.7900, "lng": 29.5400},
+        "Derince":    {"lat": 40.7700, "lng": 29.8200},
+        "Kandıra":    {"lat": 41.0700, "lng": 30.1500},
+        "Karamürsel": {"lat": 40.6911, "lng": 29.6140},
+    }
