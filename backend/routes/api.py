@@ -29,11 +29,12 @@ def get_news():
         skip = request.args.get("skip", 0, type=int)
 
         news = db.get_all_news(filters=filters, limit=limit, skip=skip)
+        total = db.count_news(filters=filters)
         _serialize_dates(news)
 
-        return jsonify({"status": "ok", "data": news, "count": len(news)})
+        return jsonify({"status": "ok", "data": news, "count": len(news), "total": total})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e), "data": [], "count": 0})
+        return jsonify({"status": "error", "message": str(e), "data": [], "count": 0, "total": 0})
 
 
 @api_bp.route("/news/map", methods=["GET"])
@@ -131,11 +132,11 @@ def _parse_filters(args) -> dict:
         except ValueError:
             pass
 
-    # Kural: Her zaman son 3 gün içinde filtrele (geçmiş veri silinmez).
-    # - Tarih verilmemişse default son 3 gün
-    # - Tarih verilmişse son 3 gün aralığına "clamp" et
+    # Kural: Her zaman son 3 takvim günü içinde filtrele (geçmiş veri silinmez).
+    # Son 3 takvim günü = (bugün dahil) bugün ve önceki 2 gün (00:00'dan itibaren)
     now = datetime.now()
-    window_start = now - timedelta(days=3)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    window_start = today_start - timedelta(days=2)
     if "start_date" not in filters:
         filters["start_date"] = window_start
     if "end_date" not in filters:

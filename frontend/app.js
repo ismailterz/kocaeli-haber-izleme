@@ -69,15 +69,20 @@ function initMap() {
 
 function setDefaultDates() {
     const now = new Date();
+    // Son 3 takvim günü: bugün + önceki 2 gün
     const threeDaysAgo = new Date(now);
-    threeDaysAgo.setDate(now.getDate() - 3);
+    threeDaysAgo.setHours(0, 0, 0, 0);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
 
     document.getElementById("endDate").value = formatDateForInput(now);
     document.getElementById("startDate").value = formatDateForInput(threeDaysAgo);
 }
 
 function formatDateForInput(date) {
-    return date.toISOString().split("T")[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
 }
 
 async function apiCall(endpoint, params = {}) {
@@ -116,8 +121,10 @@ function getFilters() {
 
     // Kural: UI tarafında da son 3 gün ile sınırla
     const now = new Date();
+    // Son 3 takvim günü: bugün + önceki 2 gün (00:00'dan itibaren)
     const windowStart = new Date(now);
-    windowStart.setDate(now.getDate() - 3);
+    windowStart.setHours(0, 0, 0, 0);
+    windowStart.setDate(windowStart.getDate() - 2);
 
     const parsedStart = startDate ? new Date(startDate + "T00:00:00") : null;
     const parsedEnd = endDate ? new Date(endDate + "T23:59:59") : null;

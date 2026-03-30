@@ -62,6 +62,10 @@ class DatabaseService:
             results.append(doc)
         return results
 
+    def count_news(self, filters: dict = None) -> int:
+        query = self._build_query(filters)
+        return self.db.news.count_documents(query)
+
     def get_news_for_map(self, filters: dict = None) -> list:
         query = {"location.coordinates": {"$exists": True, "$ne": None}}
         query.update(self._build_query(filters))
