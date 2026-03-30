@@ -77,7 +77,18 @@ class CommonCMSScraper(BaseScraper):
     def get_article_links(self) -> list:
         soup = self.fetch_page(self.base_url)
         if not soup:
-            return []
+            # Cloudflare vb. ana sayfayı engellerse sitemap/rss üzerinden link topla
+            links: list[str] = []
+            seen: set[str] = set()
+            for url in self._get_links_from_sitemap():
+                if url not in seen:
+                    seen.add(url)
+                    links.append(url)
+            for url in self._get_links_from_rss():
+                if url not in seen:
+                    seen.add(url)
+                    links.append(url)
+            return links
 
         links = set()
         for a_tag in soup.find_all("a", href=True):
@@ -101,6 +112,129 @@ class CommonCMSScraper(BaseScraper):
                                 links.add(full_url)
 
         return list(links)
+
+    def _get_links_from_sitemap(self) -> list[str]:
+        from bs4 import BeautifulSoup
+
+        sitemap_url = f"{self.base_url.rstrip('/')}/sitemap.xml"
+        xml = self.fetch_text(sitemap_url, timeout_s=40)
+        if not xml:
+            return []
+
+        soup = BeautifulSoup(xml, "xml")
+        # url -> lastmod (varsa)
+        links: dict[str, datetime | None] = {}
+        start_dt: datetime | None = None
+        end_dt: datetime | None = None
+        try:
+            from config import Config
+            start_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_START_DATE", None))
+            end_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_END_DATE", None))
+        except Exception:
+            pass
+
+        # sitemapindex ise child sitemap'leri dolaş
+        if soup.find("sitemapindex"):
+            sitemap_tags = soup.find_all("sitemap")
+            for sm in sitemap_tags:
+                loc_tag = sm.find("loc")
+                if not loc_tag:
+                    continue
+                child = (loc_tag.get_text() or "").strip()
+                if not child:
+                    continue
+
+                # Birçok sitede child sitemap isimleri "sitemap-YYYY-MM.xml" şeklinde.
+                # Tarih aralığı varsa, URL'den ayı okuyup sadece o ayları çek.
+                if (start_dt or end_dt):
+                    m = re.search(r"sitemap-(\d{4})-(\d{2})\.xml", child)
+                    if m:
+                        yy = int(m.group(1))
+                        mm = int(m.group(2))
+                        month_start = datetime(yy, mm, 1)
+                        month_end = datetime(yy + (1 if mm == 12 else 0), (1 if mm == 12 else mm + 1), 1)
+                        if start_dt and month_end <= start_dt:
+                            continue
+                        if end_dt and month_start > end_dt:
+                            continue
+
+                child_xml = self.fetch_text(child, timeout_s=60)
+                if not child_xml:
+                    continue
+                child_soup = BeautifulSoup(child_xml, "xml")
+                for u in child_soup.find_all("url"):
+                    loc2 = u.find("loc")
+                    if not loc2:
+                        continue
+                    url = (loc2.get_text() or "").strip()
+                    if not url or "/haber/" not in url:
+                        continue
+                    lastmod_tag = u.find("lastmod")
+                    lm_dt = None
+                    if lastmod_tag:
+                        lm = (lastmod_tag.get_text() or "").strip()
+                        try:
+                            lm_dt = datetime.fromisoformat(lm.replace("Z", "+00:00"))
+                        except Exception:
+                            lm_dt = None
+
+                    # URL bazlı filtre
+                    if start_dt and lm_dt and lm_dt < start_dt:
+                        continue
+                    if end_dt and lm_dt and lm_dt > end_dt:
+                        continue
+
+                    links[url] = links.get(url) or lm_dt
+
+            # backfill: eskiden yeniye doğru sırala (lastmod yoksa sona)
+            return [u for (u, _) in sorted(links.items(), key=lambda kv: (kv[1] is None, kv[1] or datetime.max))]
+
+        # urlset ise direkt linkleri al
+        for u in soup.find_all("url"):
+            loc_tag = u.find("loc")
+            if not loc_tag:
+                continue
+            url = (loc_tag.get_text() or "").strip()
+            if not url or "/haber/" not in url:
+                continue
+            lastmod_tag = u.find("lastmod")
+            lm_dt = None
+            if lastmod_tag:
+                lm = (lastmod_tag.get_text() or "").strip()
+                try:
+                    lm_dt = datetime.fromisoformat(lm.replace("Z", "+00:00"))
+                except Exception:
+                    lm_dt = None
+            if start_dt and lm_dt and lm_dt < start_dt:
+                continue
+            if end_dt and lm_dt and lm_dt > end_dt:
+                continue
+            links[url] = links.get(url) or lm_dt
+
+        return [u for (u, _) in sorted(links.items(), key=lambda kv: (kv[1] is None, kv[1] or datetime.max))]
+
+    def _get_links_from_rss(self) -> set[str]:
+        rss_url = f"{self.base_url.rstrip('/')}/rss"
+        soup = self.fetch_page(rss_url)
+        if not soup:
+            return set()
+
+        links: set[str] = set()
+        # RSS: <item><link>...</link></item>
+        for item in soup.find_all("item"):
+            link = item.find("link")
+            if not link:
+                continue
+            url = (link.get_text() or "").strip()
+            if url and "/haber/" in url:
+                links.add(url)
+        # Bazı RSS'lerde <link> yerine <guid> olabilir
+        if not links:
+            for guid in soup.find_all("guid"):
+                url = (guid.get_text() or "").strip()
+                if url and "/haber/" in url:
+                    links.add(url)
+        return links
 
     def _get_category_pages(self) -> list:
         categories = [

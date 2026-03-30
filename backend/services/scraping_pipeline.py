@@ -144,6 +144,8 @@ class ScrapingPipeline:
             return
 
         embedding = self.duplicate_detector.compute_embedding_for_text(title, content)
+        if not embedding:
+            embedding = None
 
         news_doc = NewsModel.create(
             title=title,

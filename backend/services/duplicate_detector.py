@@ -16,15 +16,22 @@ class DuplicateDetector:
         self.db = db
         self.model = None
         self.threshold = Config.SIMILARITY_THRESHOLD
+        self.enabled = getattr(Config, "EMBEDDINGS_ENABLED", True)
 
     def _get_model(self):
+        if not self.enabled:
+            return None
         if self.model is None:
             from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer("emrecan/bert-base-turkish-cased-mean-nli-stsb-tr")
         return self.model
 
     def get_embedding(self, text: str) -> list[float]:
+        if not self.enabled:
+            return []
         model = self._get_model()
+        if model is None:
+            return []
         embedding = model.encode(text, show_progress_bar=False)
         return embedding.tolist()
 
@@ -33,7 +40,7 @@ class DuplicateDetector:
         Veritabanındaki mevcut haberlere karşı benzerlik kontrolü yapar.
         %90 veya üzerinde benzerlik varsa duplicate olarak işaretler.
         """
-        if self.db is None:
+        if (self.db is None) or (not self.enabled):
             return None
 
         text = f"{title} {content[:500]}"
@@ -76,5 +83,7 @@ class DuplicateDetector:
         return None
 
     def compute_embedding_for_text(self, title: str, content: str) -> list[float]:
+        if not self.enabled:
+            return []
         text = f"{title} {content[:500]}"
         return self.get_embedding(text)

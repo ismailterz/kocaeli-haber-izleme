@@ -28,17 +28,93 @@ class BaseScraper(ABC):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
         })
+        self._cloudscraper = None
+
+    def fetch_text(self, url: str, timeout_s: int = 30) -> str | None:
+        """
+        URL içeriğini ham metin olarak getirir.
+        Sitemap/RSS gibi XML kaynakları için kullanılır.
+        """
+        def _get_with_requests():
+            response = self.session.get(url, timeout=timeout_s, allow_redirects=True)
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
+            return response.text
+
+        def _get_with_cloudscraper():
+            if self._cloudscraper is None:
+                try:
+                    import cloudscraper  # type: ignore
+                except Exception:
+                    return None
+                self._cloudscraper = cloudscraper.create_scraper(
+                    browser={"browser": "chrome", "platform": "darwin", "mobile": False}
+                )
+                self._cloudscraper.headers.update(dict(self.session.headers))
+            resp = self._cloudscraper.get(url, timeout=timeout_s, allow_redirects=True)
+            resp.raise_for_status()
+            resp.encoding = resp.apparent_encoding
+            return resp.text
+
+        try:
+            return _get_with_requests()
+        except requests.HTTPError as e:
+            status = getattr(e.response, "status_code", None)
+            if status == 403:
+                try:
+                    return _get_with_cloudscraper()
+                except Exception:
+                    return None
+            return None
+        except requests.RequestException:
+            return None
 
     def fetch_page(self, url):
         """Safya HTML'ini çek ve BeautifulSoup objesi döndür"""
-        try:
-            response = self.session.get(url, timeout=15)
+        def _get_with_requests(timeout_s: int):
+            response = self.session.get(url, timeout=timeout_s, allow_redirects=True)
             response.raise_for_status()
             response.encoding = response.apparent_encoding
-            return BeautifulSoup(response.text, "lxml")
-        except requests.RequestException as e:
-            print(f"[{self.site_name}] Sayfa çekilemedi: {url} - {e}")
-            return None
+            return response.text
+
+        def _get_with_cloudscraper(timeout_s: int):
+            if self._cloudscraper is None:
+                try:
+                    import cloudscraper  # type: ignore
+                except Exception:
+                    return None
+                self._cloudscraper = cloudscraper.create_scraper(
+                    browser={"browser": "chrome", "platform": "darwin", "mobile": False}
+                )
+                self._cloudscraper.headers.update(dict(self.session.headers))
+            resp = self._cloudscraper.get(url, timeout=timeout_s, allow_redirects=True)
+            resp.raise_for_status()
+            resp.encoding = resp.apparent_encoding
+            return resp.text
+
+        last_err = None
+        for attempt in range(3):
+            timeout_s = 20 + attempt * 10
+            try:
+                html = _get_with_requests(timeout_s)
+                return BeautifulSoup(html, "lxml")
+            except requests.HTTPError as e:
+                last_err = e
+                status = getattr(e.response, "status_code", None)
+                if status == 403:
+                    try:
+                        html = _get_with_cloudscraper(timeout_s)
+                        if html:
+                            return BeautifulSoup(html, "lxml")
+                    except Exception as ce:
+                        last_err = ce
+                break
+            except requests.RequestException as e:
+                last_err = e
+                time.sleep(1 + attempt)
+
+        print(f"[{self.site_name}] Sayfa çekilemedi: {url} - {last_err}")
+        return None
 
     @abstractmethod
     def get_article_links(self) -> list:
@@ -67,22 +143,35 @@ class BaseScraper(ABC):
         links = self.get_article_links()
         print(f"[{self.site_name}] {len(links)} haber linki bulundu.")
 
+        # Performans: her sitede link sayısını limitli tut
+        max_links = getattr(Config, "MAX_LINKS_PER_SITE", 500) or 500
+        links = links[:max_links]
+
         articles = []
-        cutoff_date = datetime.now() - timedelta(days=Config.SCRAPE_DAYS)
+        start_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_START_DATE", None))
+        end_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_END_DATE", None))
+
+        cutoff_date = None
+        if not start_dt and getattr(Config, "SCRAPE_DAYS", 0) and Config.SCRAPE_DAYS > 0:
+            cutoff_date = datetime.now() - timedelta(days=Config.SCRAPE_DAYS)
 
         for i, link in enumerate(links):
             try:
-                # Rate limiting: siteler arası bekleme
+                # Rate limiting
                 if i > 0:
-                    time.sleep(1)
+                    time.sleep(getattr(Config, "REQUEST_DELAY_SECONDS", 0.4))
 
                 article = self.parse_article(link)
                 if article is None:
                     continue
 
-                # Son 3 günlük haberleri filtrele
+                # Son N günlük haberleri filtrele (SCRAPE_DAYS<=0 ise filtre yok)
                 pub_date = article.get("publish_date")
-                if pub_date and pub_date < cutoff_date:
+                if cutoff_date and pub_date and pub_date < cutoff_date:
+                    continue
+                if start_dt and pub_date and pub_date < start_dt:
+                    continue
+                if end_dt and pub_date and pub_date > end_dt:
                     continue
 
                 article["source"] = {

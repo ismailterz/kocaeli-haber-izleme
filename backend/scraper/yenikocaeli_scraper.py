@@ -18,7 +18,8 @@ class YeniKocaeliScraper(BaseScraper):
     def get_article_links(self) -> list:
         soup = self.fetch_page(self.base_url)
         if not soup:
-            return []
+            # Ana sayfa yavaş/timeout olursa sitemap üzerinden dene
+            return list(self._get_links_from_sitemap())
 
         links = set()
         for a_tag in soup.find_all("a", href=True):
@@ -45,6 +46,78 @@ class YeniKocaeliScraper(BaseScraper):
                             links.add(full_url)
 
         return list(links)
+
+    def _get_links_from_sitemap(self) -> set[str]:
+        from bs4 import BeautifulSoup
+
+        sitemap_url = f"{self.base_url.rstrip('/')}/sitemap.xml"
+        xml = self.fetch_text(sitemap_url, timeout_s=40)
+        if not xml:
+            return set()
+
+        soup = BeautifulSoup(xml, "xml")
+        links: dict[str, datetime | None] = {}
+        start_dt = None
+        end_dt = None
+        try:
+            from config import Config
+            start_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_START_DATE", None))
+            end_dt = Config.parse_iso_datetime(getattr(Config, "SCRAPE_END_DATE", None))
+        except Exception:
+            pass
+
+        if soup.find("sitemapindex"):
+            for loc in soup.find_all("loc"):
+                child = (loc.get_text() or "").strip()
+                if not child:
+                    continue
+                child_xml = self.fetch_text(child, timeout_s=40)
+                if not child_xml:
+                    continue
+                child_soup = BeautifulSoup(child_xml, "xml")
+                for u in child_soup.find_all("url"):
+                    loc_tag = u.find("loc")
+                    if not loc_tag:
+                        continue
+                    url = (loc_tag.get_text() or "").strip()
+                    if not url or "/haber/" not in url:
+                        continue
+                    lastmod_tag = u.find("lastmod")
+                    lm_dt = None
+                    if lastmod_tag:
+                        lm = (lastmod_tag.get_text() or "").strip()
+                        try:
+                            lm_dt = datetime.fromisoformat(lm.replace("Z", "+00:00"))
+                        except Exception:
+                            lm_dt = None
+                    if start_dt and lm_dt and lm_dt < start_dt:
+                        continue
+                    if end_dt and lm_dt and lm_dt > end_dt:
+                        continue
+                    links[url] = links.get(url) or lm_dt
+            return set([u for (u, _) in sorted(links.items(), key=lambda kv: (kv[1] is None, kv[1] or datetime.max))])
+
+        for u in soup.find_all("url"):
+            loc_tag = u.find("loc")
+            if not loc_tag:
+                continue
+            url = (loc_tag.get_text() or "").strip()
+            if not url or "/haber/" not in url:
+                continue
+            lastmod_tag = u.find("lastmod")
+            lm_dt = None
+            if lastmod_tag:
+                lm = (lastmod_tag.get_text() or "").strip()
+                try:
+                    lm_dt = datetime.fromisoformat(lm.replace("Z", "+00:00"))
+                except Exception:
+                    lm_dt = None
+            if start_dt and lm_dt and lm_dt < start_dt:
+                continue
+            if end_dt and lm_dt and lm_dt > end_dt:
+                continue
+            links[url] = links.get(url) or lm_dt
+        return set([u for (u, _) in sorted(links.items(), key=lambda kv: (kv[1] is None, kv[1] or datetime.max))])
 
     def parse_article(self, url: str) -> dict | None:
         soup = self.fetch_page(url)

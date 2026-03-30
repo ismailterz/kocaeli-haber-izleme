@@ -109,11 +109,32 @@ function getFilters() {
     const district = document.getElementById("districtFilter").value;
     if (district) filters.district = district;
 
-    const startDate = document.getElementById("startDate").value;
-    if (startDate) filters.start_date = startDate;
+    const startEl = document.getElementById("startDate");
+    const endEl = document.getElementById("endDate");
+    const startDate = startEl.value;
+    const endDate = endEl.value;
 
-    const endDate = document.getElementById("endDate").value;
-    if (endDate) filters.end_date = endDate + "T23:59:59";
+    // Kural: UI tarafında da son 3 gün ile sınırla
+    const now = new Date();
+    const windowStart = new Date(now);
+    windowStart.setDate(now.getDate() - 3);
+
+    const parsedStart = startDate ? new Date(startDate + "T00:00:00") : null;
+    const parsedEnd = endDate ? new Date(endDate + "T23:59:59") : null;
+
+    let clampedStart = parsedStart || windowStart;
+    let clampedEnd = parsedEnd || now;
+
+    if (clampedStart < windowStart) clampedStart = windowStart;
+    if (clampedEnd > now) clampedEnd = now;
+    if (clampedEnd < clampedStart) clampedEnd = clampedStart;
+
+    // input'ları da güncelle (kullanıcı neyle filtrelediğini görsün)
+    startEl.value = formatDateForInput(clampedStart);
+    endEl.value = formatDateForInput(clampedEnd);
+
+    filters.start_date = startEl.value;
+    filters.end_date = endEl.value + "T23:59:59";
 
     return filters;
 }
@@ -132,7 +153,12 @@ async function loadDistricts() {
 }
 
 async function loadStats() {
-    const result = await apiCall("/stats");
+    const filters = getFilters();
+    const selectedCategories = getSelectedCategories();
+    const result = await apiCall("/stats", {
+        ...filters,
+        categories: selectedCategories.join(","),
+    });
     if (!result || !result.data) return;
 
     const grid = document.getElementById("statsGrid");
@@ -235,6 +261,8 @@ function addMarker(news) {
             )
             .join("<br>");
 
+        const locationText = (news.location && news.location.text) ? String(news.location.text) : "";
+
         const content = `
             <div class="info-window">
                 <h3>${news.title}</h3>
@@ -242,6 +270,11 @@ function addMarker(news) {
                     <span>📅 ${publishDate}</span>
                     ${sourcesHtml}
                 </div>
+                ${
+                    locationText
+                        ? `<div style="margin-top:8px; font-size:12px; color:#3c4043;">📍 ${locationText}</div>`
+                        : ""
+                }
                 ${
                     firstSource.url
                         ? `<a href="${firstSource.url}" target="_blank" class="info-window-btn">

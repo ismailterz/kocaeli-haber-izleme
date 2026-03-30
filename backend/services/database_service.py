@@ -49,21 +49,7 @@ class DatabaseService:
         return self.db.news.find_one({"sources.url": url}) is not None
 
     def get_all_news(self, filters: dict = None, limit: int = 100, skip: int = 0) -> list:
-        query = {}
-        if filters:
-            if filters.get("category"):
-                query["category"] = filters["category"]
-            if filters.get("district"):
-                query["location.district"] = filters["district"]
-            if filters.get("start_date") and filters.get("end_date"):
-                query["publish_date"] = {
-                    "$gte": filters["start_date"],
-                    "$lte": filters["end_date"]
-                }
-            elif filters.get("start_date"):
-                query["publish_date"] = {"$gte": filters["start_date"]}
-            elif filters.get("end_date"):
-                query["publish_date"] = {"$lte": filters["end_date"]}
+        query = self._build_query(filters)
 
         cursor = self.db.news.find(
             query,
@@ -78,20 +64,7 @@ class DatabaseService:
 
     def get_news_for_map(self, filters: dict = None) -> list:
         query = {"location.coordinates": {"$exists": True, "$ne": None}}
-        if filters:
-            if filters.get("category"):
-                query["category"] = filters["category"]
-            if filters.get("district"):
-                query["location.district"] = filters["district"]
-            if filters.get("start_date") and filters.get("end_date"):
-                query["publish_date"] = {
-                    "$gte": filters["start_date"],
-                    "$lte": filters["end_date"]
-                }
-            elif filters.get("start_date"):
-                query["publish_date"] = {"$gte": filters["start_date"]}
-            elif filters.get("end_date"):
-                query["publish_date"] = {"$lte": filters["end_date"]}
+        query.update(self._build_query(filters))
 
         cursor = self.db.news.find(
             query,
@@ -121,27 +94,60 @@ class DatabaseService:
             doc["_id"] = str(doc["_id"])
         return doc
 
-    def get_stats(self) -> dict:
+    def get_stats(self, filters: dict = None) -> dict:
+        query = self._build_query(filters)
+
         pipeline = [
+            {"$match": query} if query else {"$match": {}},
             {"$group": {"_id": "$category", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}}
         ]
         category_stats = list(self.db.news.aggregate(pipeline))
 
+        district_query = dict(query) if query else {}
+        district_query["location.district"] = {"$exists": True, "$ne": None}
         district_pipeline = [
-            {"$match": {"location.district": {"$exists": True, "$ne": None}}},
+            {"$match": district_query},
             {"$group": {"_id": "$location.district", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}}
         ]
         district_stats = list(self.db.news.aggregate(district_pipeline))
 
-        total = self.db.news.count_documents({})
+        total = self.db.news.count_documents(query if query else {})
 
         return {
             "total": total,
             "by_category": {s["_id"]: s["count"] for s in category_stats},
             "by_district": {s["_id"]: s["count"] for s in district_stats},
         }
+
+    @staticmethod
+    def _build_query(filters: dict | None) -> dict:
+        query: dict = {}
+        if not filters:
+            return query
+
+        # category: single veya çoklu
+        categories = filters.get("categories")
+        category = filters.get("category")
+        if categories and isinstance(categories, list):
+            query["category"] = {"$in": categories}
+        elif category:
+            query["category"] = category
+
+        if filters.get("district"):
+            query["location.district"] = filters["district"]
+
+        start_date = filters.get("start_date")
+        end_date = filters.get("end_date")
+        if start_date and end_date:
+            query["publish_date"] = {"$gte": start_date, "$lte": end_date}
+        elif start_date:
+            query["publish_date"] = {"$gte": start_date}
+        elif end_date:
+            query["publish_date"] = {"$lte": end_date}
+
+        return query
 
     def get_recent_news(self, days: int = 3, limit: int = 20) -> list:
         since = datetime.now() - timedelta(days=days)

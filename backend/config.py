@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,8 +19,26 @@ class Config:
     FLASK_DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
 
     # Scraping
-    SCRAPE_DAYS = 3  # Son kaç günün haberlerini çek
+    SCRAPE_DAYS = int(os.getenv("SCRAPE_DAYS", "3"))  # Son kaç günün haberlerini çek
+    SCRAPE_START_DATE = os.getenv("SCRAPE_START_DATE")  # ISO date/time
+    SCRAPE_END_DATE = os.getenv("SCRAPE_END_DATE")      # ISO date/time
+    REQUEST_DELAY_SECONDS = float(os.getenv("REQUEST_DELAY_SECONDS", "0.4"))
+    MAX_LINKS_PER_SITE = int(os.getenv("MAX_LINKS_PER_SITE", "500"))
+    EMBEDDINGS_ENABLED = os.getenv("EMBEDDINGS_ENABLED", "true").lower() == "true"
     SIMILARITY_THRESHOLD = 0.90  # Duplicate algılama eşiği
+
+    @staticmethod
+    def parse_iso_datetime(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            # date-only (YYYY-MM-DD)
+            try:
+                return datetime.fromisoformat(value + "T00:00:00")
+            except Exception:
+                return None
 
     # Kocaeli ilçeleri
     KOCAELI_DISTRICTS = [

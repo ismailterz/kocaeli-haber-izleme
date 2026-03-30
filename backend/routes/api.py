@@ -3,7 +3,7 @@ Flask API endpoint'leri.
 Haberler, filtreleme, istatistik.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 
 from services.database_service import DatabaseService
@@ -68,7 +68,8 @@ def get_news_by_id(news_id):
 def get_stats():
     try:
         db = init_db()
-        stats = db.get_stats()
+        filters = _parse_filters(request.args)
+        stats = db.get_stats(filters=filters)
         return jsonify({"status": "ok", "data": stats})
     except Exception as e:
         return jsonify({"status": "ok", "data": {"total": 0, "by_category": {}, "by_district": {}}})
@@ -105,6 +106,13 @@ def _parse_filters(args) -> dict:
     if category:
         filters["category"] = category
 
+    # Çoklu kategori (örn: categories=Trafik%20Kazası,Yangın)
+    categories_raw = args.get("categories")
+    if categories_raw:
+        parts = [p.strip() for p in categories_raw.split(",") if p.strip()]
+        if parts:
+            filters["categories"] = parts
+
     district = args.get("district")
     if district:
         filters["district"] = district
@@ -122,6 +130,24 @@ def _parse_filters(args) -> dict:
             filters["end_date"] = datetime.fromisoformat(end_date)
         except ValueError:
             pass
+
+    # Kural: Her zaman son 3 gün içinde filtrele (geçmiş veri silinmez).
+    # - Tarih verilmemişse default son 3 gün
+    # - Tarih verilmişse son 3 gün aralığına "clamp" et
+    now = datetime.now()
+    window_start = now - timedelta(days=3)
+    if "start_date" not in filters:
+        filters["start_date"] = window_start
+    if "end_date" not in filters:
+        filters["end_date"] = now
+
+    # Clamp
+    if filters["start_date"] < window_start:
+        filters["start_date"] = window_start
+    if filters["end_date"] > now:
+        filters["end_date"] = now
+    if filters["end_date"] < filters["start_date"]:
+        filters["end_date"] = filters["start_date"]
 
     return filters
 
