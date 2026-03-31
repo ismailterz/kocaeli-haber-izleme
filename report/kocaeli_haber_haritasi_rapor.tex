@@ -1,0 +1,191 @@
+% Kocaeli Haber İzleme ve Haritalama - Tam LaTeX raporu
+% Derleme: pdflatex (Türkçe karakterler için T1 + utf8 + babel)
+% Görsel: u.png dosyasını bu .tex ile aynı klasöre koyun (Overleaf: projeye yükleyin).
+
+\documentclass[conference,a4paper]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[turkish]{babel}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{url}
+\def\UrlBreaks{\do\/\do-}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,parsep=0pt,topsep=4pt}
+\usepackage{graphicx}
+\usepackage{balance}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  columns=fullflexible,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{black!20},
+  xleftmargin=0.6em,
+  xrightmargin=0.2em,
+  aboveskip=0.6em,
+  belowskip=0.2em
+}
+
+\title{Kocaeli Bölgesi Haberlerinin Toplanması, Tekrar Tespiti ve Harita Üzerinde Görselleştirilmesi}
+
+\author{
+\IEEEauthorblockN{İsmail Terzi}
+\IEEEauthorblockA{Bilgi İşlem / Yazılım Geliştirme\\
+E-posta: \href{mailto:ornek1@domain.edu}{ornek1@domain.edu}}
+\and
+\IEEEauthorblockN{İsmail Uslu}
+\IEEEauthorblockA{Bilgi İşlem / Yazılım Geliştirme\\
+E-posta: \href{mailto:ornek2@domain.edu}{ornek2@domain.edu}}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Bu çalışmada Kocaeli iline ait çevrimiçi haber kaynaklarından otomatik veri toplama, metin temizleme ve anahtar kelime tabanlı olay türü sınıflandırması; haber metninden konum çıkarımı ve jeokodlama; çok kaynaklı aynı haberlerin gömütleme tabanlı benzerlik ile birleştirilmesi; verilerin MongoDB üzerinde saklanması ve Google Haritalar ile etkileşimli bir web arayüzünde sunulması anlatılmaktadır. Sistem, birden fazla yerel haber sitesini destekleyecek şekilde tasarlanmış; uygulama programlama arayüzü (API) ile filtreleme, istatistik ve isteğe bağlı tarama tetikleme sağlanmıştır.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Web kazıma, doğal dil işleme, gömütleme, tekrar tespiti, coğrafi görselleştirme, Flask, MongoDB
+\end{IEEEkeywords}
+
+\section{Giriş}
+Yerel haber sitelerinde yayımlanan trafik kazası, yangın, elektrik kesintisi gibi olaylar sıklıkla coğrafi bağlam içerir. Bu haberleri tek bir yapıda toplayıp harita üzerinde göstermek, hem araştırmacılar hem de karar vericiler için bölgesel farkındalığı artırır. Ancak kaynak çeşitliliği, aynı olayın farklı sitelerde tekrarlanması ve otomasyon sırasında karşılaşılan erişim engelleri (ör.\ bot koruması) entegre bir sistemin gerekçesini oluşturur.
+
+Bu projede amaç, seçilen Kocaeli odaklı haber sitelerinden yapılandırılmış veri çekmek; her haber için tür, başlık, içerik, konum (metin ve koordinat), yayın tarihi, kaynak adı ve bağlantı alanlarını saklamak; $\geq$\,\%90 kosinüs benzerliğine sahip gömütleme vektörleriyle tekrar haberleri tek kayıtta birleştirmek; ve sonuçları tarih, ilçe ve olay türü filtreleriyle haritada sunmaktır.
+
+\section{İlgili Çalışmalar}
+Haber kazıma ve olay madenciliği literatürü; veri toplama (crawler/scraper), metin işleme, yer adı tanıma (toponym extraction), jeokodlama ve görselleştirme adımlarının birleşimi olarak ele alınabilir. Bu projede iki pratik yaklaşım bir arada kullanılmıştır: (i) kaynak site yapılarının (CMS şablonları, sitemap/RSS) ayrıştırılmasıyla güvenilir bağlantı çıkarımı; (ii) aynı olayın farklı kaynaklarda tekrarlanması problemine karşı, metin gömütleme (embedding) vektörleriyle benzerlik tabanlı birleştirme.
+
+Kural tabanlı sınıflandırma; sınırlı olay türleri için hızlı ve denetlenebilir sonuçlar üretir. Buna karşın, haberin farklı ifade biçimleri ve bağlam çeşitliliği arttıkça anahtar kelime listelerinin bakım maliyeti yükselir. Bu nedenle sistem, gömütleme tabanlı tekrar tespitinde olduğu gibi hesaplama maliyeti yüksek bileşenleri yapılandırılabilir (aç/kapat) olarak tasarlamıştır.
+
+\section{Sistem Mimarisi}
+Sistem üç ana bileşenden oluşur:
+\begin{itemize}
+    \item \textbf{Sunucu tarafı:} Python ile yazılmış Flask uygulaması. REST API üzerinden haber listesi, harita verisi, istatistik ve elle tarama (\texttt{POST /api/scrape}) sunar. İsteğe bağlı olarak \texttt{schedule} kütüphanesi ile arka planda periyodik tarama (ör.\ 6 saatte bir) çalıştırılır.
+    \item \textbf{Veri katmanı:} MongoDB. Haber belgeleri, kaynak dizisi, konum nesnesi ve isteğe bağlı gömütleme vektörü ile saklanır. Konumsal sorgular için uygun indeksler kullanılır.
+    \item \textbf{İstemci:} Statik HTML, CSS ve JavaScript. Google Maps JavaScript API ile işaretçiler; sol panelde tarih aralığı, olay türü ve ilçe filtreleri bulunur.
+\end{itemize}
+
+\begin{figure}[!t]
+    \centering
+    % u.png: Arayüz ekran görüntüsü (proje kökünden bu ada yeniden adlandırılmış olmalı)
+    \includegraphics[width=0.48\textwidth]{u.png}
+    \caption{Kocaeli haber haritası web arayüzü: filtreler ve harita görünümü.}
+    \label{fig:ui}
+\end{figure}
+
+Şekil~\ref{fig:ui}, sistemin kullanıcı arayüzünü (\texttt{u.png}) özetler.
+
+\section{Haber Kaynakları ve Toplama}
+Aşağıdaki kaynaklar için özel veya ortak kazıyıcı (scraper) modülleri kullanılmaktadır:
+\begin{itemize}
+    \item Çağdaş Kocaeli, Özgür Kocaeli, Ses Kocaeli, Bizim Yaka: ortak CMS yapısına uygun \texttt{CommonCMSScraper} türevleri.
+    \item Yeni Kocaeli: site yapısına uygun \texttt{YeniKocaeliScraper}.
+\end{itemize}
+
+Sayfa isteği bazen \texttt{403 Forbidden} veya zaman aşımı ile sonuçlanabildiğinden, temel HTTP istemcisine ek olarak \texttt{cloudscraper} ile yedek istek yolu kullanılabilir. Bağlantı listesi için ana sayfa ayrıştırmasının yetersiz kaldığı durumlarda \texttt{sitemap.xml} (ve alt site haritaları) ile RSS gibi yollar devreye alınır; yayın veya \texttt{lastmod} tarihleri ile tarih penceresine göre süzme yapılabilir.
+
+Çevresel yapılandırma (\texttt{.env}) üzerinden örneğin şu parametreler yönetilir: \texttt{SCRAPE\_DAYS}, isteğe bağlı \texttt{SCRAPE\_START\_DATE} / \texttt{SCRAPE\_END\_DATE}, istekler arası gecikme (\texttt{REQUEST\_DELAY\_SECONDS}), site başına üst bağlantı sınırı (\texttt{MAX\_LINKS\_PER\_SITE}) ve gömütleme hesabının açılıp kapanması (\texttt{EMBEDDINGS\_ENABLED}).
+
+\section{Uygulama Detayları}
+\subsection{Bağlantı çıkarımı ve tarih süzme}
+Her kaynak için makale bağlantıları, mümkün olduğunda ana sayfadan çıkarılır. Erişim engeli veya içerik yapısı nedeniyle ana sayfadan link çıkarımı başarısız olursa sitemap/RSS yedek akışı kullanılır. Sitemap söz konusu olduğunda iki tip dosya görülebilir: \texttt{urlset} (doğrudan URL listesi) veya \texttt{sitemapindex} (alt site haritalarına işaret eden indeks). Sistem, \texttt{sitemapindex} durumunda alt haritaları da indirerek ay/yıl bazlı parçalı haritalarda daha geniş arama yapar. Tarih aralığı yapılandırması ile uyumsuz aylara ait alt haritalar indirilmeyerek ağ yükü azaltılır.
+
+\subsection{Konum nesnesi ve jeokodlama}
+Konum, iki bileşenli saklanır: (i) kullanıcıya gösterilecek metin (ör.\ mahalle/cadde/ilçe); (ii) harita üzerinde işaretleme için enlem-boylam. Metinden konum çıkarımı; ilçe isimleri ve adres benzeri kalıpların sezgisel yakalanmasına dayanır. Jeokodlama servisinden sonuç alınamazsa, ilgili ilçenin merkez koordinatlarının çok küçük bir rastgele sapma ile kullanılması, haritada ``yaklaşık'' bir dağılım sağlar.
+
+\subsection{Tekrar haber birleştirme stratejisi}
+Tekrar kontrolü iki aşamalıdır: (i) URL daha önce kaydedilmişse doğrudan atlama; (ii) metin benzerliği ile aynı olayı anlatan farklı URL'leri birleştirme. İkinci aşama etkinse, her haber için gömütleme vektörü hesaplanır ve veritabanında gömütlemesi bulunan kayıtlarla kosinüs benzerliği ölçülür. En yüksek benzerlik $\\geq 0{,}90$ ise yeni kaynak, mevcut kaydın \texttt{sources} dizisine eklenir ve tekil bir haber girdisi korunur.
+
+\begin{table}[!t]
+\\centering
+\\caption{Sistem bileşenleri ve kullanılan teknolojiler}
+\\label{tab:tech}
+\\begin{tabular}{@{}p{0.30\\linewidth}p{0.62\\linewidth}@{}}
+\\toprule
+\\textbf{Bileşen} & \\textbf{Teknoloji / Araç} \\\\
+\\midrule
+Sunucu & Python, Flask, Flask-CORS, schedule \\\\
+Veritabanı & MongoDB, PyMongo, GeoJSON Point \\\\
+Kazıma & requests, BeautifulSoup, lxml, cloudscraper (yedek) \\\\
+NLP & Metin temizleme, anahtar kelime tabanlı sınıflandırma \\\\
+Tekrar tespiti & sentence-transformers, cosine similarity (scikit-learn) \\\\
+Harita & Google Maps JavaScript API \\\\
+\\bottomrule
+\\end{tabular}
+\\end{table}
+
+\section{İşleme Boru Hattı}
+Kazıyıcıdan gelen her makale sırasıyla işlenir:
+\begin{enumerate}
+    \item \textbf{URL kontrolü:} Aynı haber URL'si veritabanında varsa atlanır.
+    \item \textbf{Metin temizleme:} \texttt{TextCleaner} ile içerik sadeleştirilir.
+    \item \textbf{Sınıflandırma:} \texttt{NewsClassifier}, Türkçe anahtar kelime kümeleriyle olay türünü belirler: Trafik Kazası, Yangın, Elektrik Kesintisi, Hırsızlık, Kültürel Etkinlikler; eşleşme yoksa ``Diğer''e düşer ve haritaya alınmayabilir.
+    \item \textbf{Konum:} \texttt{LocationExtractor} başlık ve metinden ilçe veya adres ipuçları çıkarır. \texttt{GeocodingService} (yapılandırmaya göre Nominatim veya Google) ile koordinat üretilir; sonuç yoksa ilçe merkezlerine yakın rastgele küçük sapma ile yedek nokta atanabilir.
+    \item \textbf{Tekrar tespiti:} Etkinse, başlık ve içeriğin ilk kısmından oluşan metin \texttt{sentence-transformers} modeli (\texttt{emrecan/bert-base-turkish-cased-mean-nli-stsb-tr}) ile gömülür; veritabanındaki gömütleleriyle kosinüs benzerliği hesaplanır. Eşik değeri 0{,}90 (\texttt{SIMILARITY\_THRESHOLD}) aşılırsa yeni kaynak, mevcut haberin \texttt{sources} listesine eklenir.
+    \item \textbf{Kalıcılık:} \texttt{NewsModel} yapısıyla belge oluşturulur ve MongoDB'ye yazılır.
+\end{enumerate}
+
+\subsection{API ile tetikleme ve filtreleme}
+Kazıma işlemi sistem çalışırken API üzerinden tekrar tetiklenebilir. Bu sayede zamanlayıcıya ek olarak manuel güncelleme yapılabilir. İstemci, tarih aralığı, ilçe ve kategori seçimlerini API sorgu parametreleriyle gönderir. Sunucu tarafında varsayılan ``son üç takvim günü'' kuralı uygulanır; aralık dışına taşan seçimler bu pencereye sıkıştırılır.
+
+\begin{lstlisting}
+POST /api/scrape
+
+GET /api/news?start_date=2026-03-28&end_date=2026-03-30T23:59:59
+
+GET /api/stats?district=Izmit&categories=Yangin,Trafik%20Kazasi
+\end{lstlisting}
+
+\section{Veri Modeli ve API}
+Her haber öğesi özetle şu alanları içerir: \texttt{category}, \texttt{title}, \texttt{content}, \texttt{raw\_content}, \texttt{location} (\texttt{text}, \texttt{district}, GeoJSON \texttt{Point} koordinatları), \texttt{publish\_date}, çoklu \texttt{sources} (\texttt{site\_name}, \texttt{url}, \texttt{scraped\_at}), \texttt{embedding}, zaman damgaları.
+
+Örnek uç noktalar:
+\begin{itemize}
+    \item \texttt{GET /api/news} --- sayfalama ve filtre; yanıtta \texttt{count} ve toplam eşleşen \texttt{total}.
+    \item \texttt{GET /api/news/map} --- harita için süzülmüş özet.
+    \item \texttt{GET /api/stats} --- filtrelerle uyumlu kategori ve ilçe sayımları.
+    \item \texttt{POST /api/scrape} --- boru hattını manuel çalıştırır.
+\end{itemize}
+
+API tarafında istemci sorguları varsayılan olarak ``son üç takvim günü'' (bugün ve önceki iki gün, gece yarısından anlık zamana) ile sınırlandırılır; kullanıcı aralığı bu pencere dışına taşarsa arka uç aralığı bu pencereye sıkıştırır. Böylece eski kayıtlar silinmeden saklanırken arayüz ve istatistikler güncel odaklı kalır.
+
+\section{Deneysel Değerlendirme ve Bulgular}
+Sistem, farklı kaynaklardan gelen haberlerin tekilleştirilmesi ve harita üzerinde anlamlı bir dağılım üretmesi açısından değerlendirilebilir. Bu projede temel başarı ölçütleri şunlardır: (i) aynı URL'nin tekrar kaydedilmemesi; (ii) farklı kaynaklardaki benzer içeriklerin tek haberde birleştirilmesi; (iii) harita işaretçileri için mümkün olduğunda koordinat üretimi; (iv) filtrelerin (tarih/ilçe/kategori) hem liste hem istatistikler üzerinde tutarlı çalışması.
+
+Gözlemler, gömütleme tabanlı yaklaşımın aynı olayın farklı başlıklarla verildiği durumlarda URL tabanlı kontrole göre belirgin avantaj sağladığını göstermektedir. Bununla birlikte, gömütleme hesabı maliyetlidir; bu nedenle geçmiş veri yükleme (backfill) veya hızlı tarama senaryolarında \texttt{EMBEDDINGS\_ENABLED=false} seçeneği ile performans/kalite dengesi kurulabilir.
+
+\section{Kısıtlar ve Tartışma}
+Sistem pratik bir prototip olarak aşağıdaki kısıtlara sahiptir:
+\\begin{itemize}
+  \\item \\textbf{Kazıma dayanıklılığı:} Site yapıları değiştikçe link çıkarımı güncellenmelidir. Bot korumaları (403 vb.) zaman zaman erişimi etkileyebilir.
+  \\item \\textbf{Jeokodlama doğruluğu:} Metinden konum çıkarımı sezgisel olduğundan, özellikle belirsiz ifadelerde yanlış ilçe eşlemesi olabilir. Sonuç yoksa ilçe merkezine düşmek yaklaşık gösterim sağlar.
+  \\item \\textbf{Tekrar eşiği:} 0{,}90 eşiği pratikte iyi çalışsa da olay türüne ve metin uzunluğuna göre ayarlanması gerekebilir.
+  \\item \\textbf{Zaman penceresi kuralı:} Son üç takvim günü kuralı, uygulamanın güncel haberleri hedeflemesi için uygundur; ancak tarihsel analiz için yapılandırmanın gevşetilmesi gerekir.
+\\end{itemize}
+
+\section{Ön Yüz}
+JavaScript, seçilen filtreleri API'ye iletir; haritada her haber için bilgi penceresinde başlık, tarih, kaynaklar ve varsa konum metni gösterilir. Tarih alanları yerel saat ile biçimlendirilir (UTC kayması önlenir). Google Maps API anahtarı sunucu tarafında \texttt{index.html} içine enjekte edilir.
+
+\section{Sonuç}
+Çalışma, çok kaynaklı yerel haber akışını tek bir jeo-etiketli veri kümesinde birleştirmeyi; gömütleme tabanlı tekrar birleştirmeyi; ve etkileşimli harita ile kullanıma sunmayı göstermektedir. Gelecek işler arasında sınıflandırmayı derin öğrenme modelleri ile zenginleştirmek, jeokodlama doğruluğunu doğrulama ile kalibre etmek ve gerçek zamanlı uyarılar eklenebilir.
+
+\begin{thebibliography}{00}
+\bibitem{flask} Pallets Projects, ``Flask Documentation,'' \url{https://flask.palletsprojects.com/}, erişim 2026.
+\bibitem{mongo} MongoDB Inc., ``MongoDB Manual,'' \url{https://www.mongodb.com/docs/}, erişim 2026.
+\bibitem{st} N. Reimers and I. Gurevych, ``Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks,'' \emph{Proc. EMNLP-IJCNLP}, 2019.
+\bibitem{maps} Google LLC, ``Maps JavaScript API,'' \url{https://developers.google.com/maps/documentation/javascript}, erişim 2026.
+\end{thebibliography}
+
+\balance
+
+\end{document}
