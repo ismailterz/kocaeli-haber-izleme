@@ -3,6 +3,7 @@ Scraping Pipeline - Tüm süreçleri birleştiren ana pipeline.
 Scraping → Temizleme → Sınıflandırma → Konum Çıkarımı → Geocoding → Duplicate → DB
 """
 
+import math
 import random
 from datetime import datetime
 
@@ -48,12 +49,13 @@ class ScrapingPipeline:
             "duplicates_merged": 0,
             "skipped_existing": 0,
             "skipped_no_category": 0,
+            "skipped_no_location": 0,
             "errors": 0,
             "sites": {},
         }
 
         for scraper in self.scrapers:
-            site_stats = {"scraped": 0, "new": 0, "duplicate": 0, "errors": 0}
+            site_stats = {"scraped": 0, "new": 0, "duplicate": 0, "errors": 0, "no_location": 0}
             try:
                 articles = scraper.scrape()
                 site_stats["scraped"] = len(articles)
@@ -78,6 +80,17 @@ class ScrapingPipeline:
         print("=" * 60)
 
         return stats
+
+    @staticmethod
+    def _nearest_district(lat: float, lng: float) -> str:
+        min_dist = float("inf")
+        nearest = "İzmit"
+        for district, center in Config.DISTRICT_CENTERS.items():
+            d = math.sqrt((lat - center["lat"]) ** 2 + (lng - center["lng"]) ** 2)
+            if d < min_dist:
+                min_dist = d
+                nearest = district
+        return nearest
 
     def _process_article(self, article: dict, stats: dict, site_stats: dict):
         source = article.get("source", {})
@@ -119,11 +132,20 @@ class ScrapingPipeline:
                     "longitude": center["lng"] + random.uniform(-0.005, 0.005),
                 }
 
+        # Eğer hiçbir şekilde koordinat üretilemediyse, gereksinime göre bu haber işlenmez
+        if not coordinates:
+            stats["skipped_no_location"] += 1
+            site_stats["no_location"] += 1
+            return
+
+        # Koordinata göre en yakın ilçeyi belirle
+        district = self._nearest_district(coordinates["latitude"], coordinates["longitude"])
+
         location = NewsModel.create_location(
             text=location_info["text"] if location_info else None,
             district=district,
-            latitude=coordinates["latitude"] if coordinates else None,
-            longitude=coordinates["longitude"] if coordinates else None,
+            latitude=coordinates["latitude"],
+            longitude=coordinates["longitude"],
         )
 
         source_doc = NewsModel.create_source(

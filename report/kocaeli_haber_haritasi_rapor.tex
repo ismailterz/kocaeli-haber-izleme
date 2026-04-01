@@ -1,6 +1,6 @@
-% Kocaeli Haber İzleme ve Haritalama - Tam LaTeX raporu
-% Derleme: pdflatex (Türkçe karakterler için T1 + utf8 + babel)
-% Görsel: u.png dosyasını bu .tex ile aynı klasöre koyun (Overleaf: projeye yükleyin).
+% Kocaeli Haber İzleme ve Haritalama - Proje Raporu
+% Derleme: pdflatex
+% Görsel: u.png dosyasını bu .tex ile aynı klasöre koyun.
 
 \documentclass[conference,a4paper]{IEEEtran}
 
@@ -21,6 +21,7 @@
 \setlist{itemsep=2pt,parsep=0pt,topsep=4pt}
 \usepackage{graphicx}
 \usepackage{balance}
+\usepackage{float}
 
 \lstset{
   basicstyle=\ttfamily\footnotesize,
@@ -34,157 +35,215 @@
   belowskip=0.2em
 }
 
-\title{Kocaeli Bölgesi Haberlerinin Toplanması, Tekrar Tespiti ve Harita Üzerinde Görselleştirilmesi}
+\title{Kocaeli Bölgesi Haberlerinin Toplanması, Sınıflandırılması, Tekrar Tespiti ve Harita Üzerinde Görselleştirilmesi}
 
 \author{
 \IEEEauthorblockN{İsmail Terzi}
-\IEEEauthorblockA{Bilgi İşlem / Yazılım Geliştirme\\
-E-posta: \href{mailto:ornek1@domain.edu}{ornek1@domain.edu}}
+\IEEEauthorblockA{Kocaeli Üniversitesi\\Bilgisayar Mühendisliği\\
+E-posta: ismailterz@users.noreply.github.com}
 \and
 \IEEEauthorblockN{İsmail Uslu}
-\IEEEauthorblockA{Bilgi İşlem / Yazılım Geliştirme\\
-E-posta: \href{mailto:ornek2@domain.edu}{ornek2@domain.edu}}
+\IEEEauthorblockA{Kocaeli Üniversitesi\\Bilgisayar Mühendisliği\\
+E-posta: ismail.uslu@ornekmail.com}
 }
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Bu çalışmada Kocaeli iline ait çevrimiçi haber kaynaklarından otomatik veri toplama, metin temizleme ve anahtar kelime tabanlı olay türü sınıflandırması; haber metninden konum çıkarımı ve jeokodlama; çok kaynaklı aynı haberlerin gömütleme tabanlı benzerlik ile birleştirilmesi; verilerin MongoDB üzerinde saklanması ve Google Haritalar ile etkileşimli bir web arayüzünde sunulması anlatılmaktadır. Sistem, birden fazla yerel haber sitesini destekleyecek şekilde tasarlanmış; uygulama programlama arayüzü (API) ile filtreleme, istatistik ve isteğe bağlı tarama tetikleme sağlanmıştır.
+Bu çalışmada Kocaeli iline ait beş farklı çevrimiçi haber kaynağından otomatik veri toplama, metin temizleme, anahtar kelime tabanlı olay türü sınıflandırması, haber metninden konum bilgisi çıkarımı ve jeokodlama, çok kaynaklı aynı haberlerin gömme (embedding) tabanlı benzerlik ile birleştirilmesi, verilerin MongoDB üzerinde saklanması ve Google Haritalar ile etkileşimli bir web arayüzünde sunulması anlatılmaktadır. Sistem, son üç takvim gününe ait haberleri otomatik olarak toplayıp sınıflandırarak harita üzerinde ilçe ve kategori bazlı filtreleme imkanı sunar.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Web kazıma, doğal dil işleme, gömütleme, tekrar tespiti, coğrafi görselleştirme, Flask, MongoDB
+Web kazıma, doğal dil işleme, anahtar kelime sınıflandırma, konum çıkarımı, jeokodlama, gömme tabanlı tekrar tespiti, coğrafi görselleştirme, Flask, MongoDB
 \end{IEEEkeywords}
 
+%==============================================================
 \section{Giriş}
-Yerel haber sitelerinde yayımlanan trafik kazası, yangın, elektrik kesintisi gibi olaylar sıklıkla coğrafi bağlam içerir. Bu haberleri tek bir yapıda toplayıp harita üzerinde göstermek, hem araştırmacılar hem de karar vericiler için bölgesel farkındalığı artırır. Ancak kaynak çeşitliliği, aynı olayın farklı sitelerde tekrarlanması ve otomasyon sırasında karşılaşılan erişim engelleri (ör.\ bot koruması) entegre bir sistemin gerekçesini oluşturur.
+Yerel haber sitelerinde yayımlanan trafik kazası, yangın, hırsızlık gibi olaylar sıklıkla coğrafi bağlam içerir. Bu haberleri tek bir yapıda toplayıp harita üzerinde göstermek, hem araştırmacılar hem de karar vericiler için bölgesel farkındalığı artırır. Ancak kaynak çeşitliliği, aynı olayın farklı sitelerde tekrarlanması ve otomasyon sırasında karşılaşılan erişim engelleri entegre bir sistemin gerekçesini oluşturur.
 
-Bu projede amaç, seçilen Kocaeli odaklı haber sitelerinden yapılandırılmış veri çekmek; her haber için tür, başlık, içerik, konum (metin ve koordinat), yayın tarihi, kaynak adı ve bağlantı alanlarını saklamak; $\geq$\,\%90 kosinüs benzerliğine sahip gömütleme vektörleriyle tekrar haberleri tek kayıtta birleştirmek; ve sonuçları tarih, ilçe ve olay türü filtreleriyle haritada sunmaktır.
+Bu projede amaç: (i) seçilen Kocaeli odaklı haber sitelerinden yapılandırılmış veri çekmek; (ii) her haber için tür, başlık, içerik, konum, yayın tarihi, kaynak adı ve bağlantı alanlarını saklamak; (iii) $\geq$\,\%90 kosinüs benzerliğine sahip gömme vektörleriyle tekrar haberleri tek kayıtta birleştirmek; (iv) sonuçları tarih, ilçe ve olay türü filtreleriyle haritada sunmaktır.
 
-\section{İlgili Çalışmalar}
-Haber kazıma ve olay madenciliği literatürü; veri toplama (crawler/scraper), metin işleme, yer adı tanıma (toponym extraction), jeokodlama ve görselleştirme adımlarının birleşimi olarak ele alınabilir. Bu projede iki pratik yaklaşım bir arada kullanılmıştır: (i) kaynak site yapılarının (CMS şablonları, sitemap/RSS) ayrıştırılmasıyla güvenilir bağlantı çıkarımı; (ii) aynı olayın farklı kaynaklarda tekrarlanması problemine karşı, metin gömütleme (embedding) vektörleriyle benzerlik tabanlı birleştirme.
-
-Kural tabanlı sınıflandırma; sınırlı olay türleri için hızlı ve denetlenebilir sonuçlar üretir. Buna karşın, haberin farklı ifade biçimleri ve bağlam çeşitliliği arttıkça anahtar kelime listelerinin bakım maliyeti yükselir. Bu nedenle sistem, gömütleme tabanlı tekrar tespitinde olduğu gibi hesaplama maliyeti yüksek bileşenleri yapılandırılabilir (aç/kapat) olarak tasarlamıştır.
-
+%==============================================================
 \section{Sistem Mimarisi}
 Sistem üç ana bileşenden oluşur:
 \begin{itemize}
-    \item \textbf{Sunucu tarafı:} Python ile yazılmış Flask uygulaması. REST API üzerinden haber listesi, harita verisi, istatistik ve elle tarama (\texttt{POST /api/scrape}) sunar. İsteğe bağlı olarak \texttt{schedule} kütüphanesi ile arka planda periyodik tarama (ör.\ 6 saatte bir) çalıştırılır.
-    \item \textbf{Veri katmanı:} MongoDB. Haber belgeleri, kaynak dizisi, konum nesnesi ve isteğe bağlı gömütleme vektörü ile saklanır. Konumsal sorgular için uygun indeksler kullanılır.
-    \item \textbf{İstemci:} Statik HTML, CSS ve JavaScript. Google Maps JavaScript API ile işaretçiler; sol panelde tarih aralığı, olay türü ve ilçe filtreleri bulunur.
+    \item \textbf{Sunucu tarafı:} Python Flask uygulaması. REST API üzerinden haber listesi, harita verisi, istatistik ve elle tarama (\texttt{POST /api/scrape}) sunar. \texttt{schedule} kütüphanesi ile 6 saatte bir otomatik tarama yapılır.
+    \item \textbf{Veri katmanı:} MongoDB. Haber belgeleri; kaynak dizisi, GeoJSON Point koordinatları ve gömme vektörü ile saklanır.
+    \item \textbf{İstemci:} HTML, CSS ve JavaScript. Google Maps JavaScript API ile işaretçiler; sol panelde tarih, olay türü ve ilçe filtreleri bulunur.
 \end{itemize}
-
-\begin{figure}[!t]
-    \centering
-    % u.png: Arayüz ekran görüntüsü (proje kökünden bu ada yeniden adlandırılmış olmalı)
-    \includegraphics[width=0.48\textwidth]{u.png}
-    \caption{Kocaeli haber haritası web arayüzü: filtreler ve harita görünümü.}
-    \label{fig:ui}
-\end{figure}
-
-Şekil~\ref{fig:ui}, sistemin kullanıcı arayüzünü (\texttt{u.png}) özetler.
-
-\section{Haber Kaynakları ve Toplama}
-Aşağıdaki kaynaklar için özel veya ortak kazıyıcı (scraper) modülleri kullanılmaktadır:
-\begin{itemize}
-    \item Çağdaş Kocaeli, Özgür Kocaeli, Ses Kocaeli, Bizim Yaka: ortak CMS yapısına uygun \texttt{CommonCMSScraper} türevleri.
-    \item Yeni Kocaeli: site yapısına uygun \texttt{YeniKocaeliScraper}.
-\end{itemize}
-
-Sayfa isteği bazen \texttt{403 Forbidden} veya zaman aşımı ile sonuçlanabildiğinden, temel HTTP istemcisine ek olarak \texttt{cloudscraper} ile yedek istek yolu kullanılabilir. Bağlantı listesi için ana sayfa ayrıştırmasının yetersiz kaldığı durumlarda \texttt{sitemap.xml} (ve alt site haritaları) ile RSS gibi yollar devreye alınır; yayın veya \texttt{lastmod} tarihleri ile tarih penceresine göre süzme yapılabilir.
-
-Çevresel yapılandırma (\texttt{.env}) üzerinden örneğin şu parametreler yönetilir: \texttt{SCRAPE\_DAYS}, isteğe bağlı \texttt{SCRAPE\_START\_DATE} / \texttt{SCRAPE\_END\_DATE}, istekler arası gecikme (\texttt{REQUEST\_DELAY\_SECONDS}), site başına üst bağlantı sınırı (\texttt{MAX\_LINKS\_PER\_SITE}) ve gömütleme hesabının açılıp kapanması (\texttt{EMBEDDINGS\_ENABLED}).
-
-\section{Uygulama Detayları}
-\subsection{Bağlantı çıkarımı ve tarih süzme}
-Her kaynak için makale bağlantıları, mümkün olduğunda ana sayfadan çıkarılır. Erişim engeli veya içerik yapısı nedeniyle ana sayfadan link çıkarımı başarısız olursa sitemap/RSS yedek akışı kullanılır. Sitemap söz konusu olduğunda iki tip dosya görülebilir: \texttt{urlset} (doğrudan URL listesi) veya \texttt{sitemapindex} (alt site haritalarına işaret eden indeks). Sistem, \texttt{sitemapindex} durumunda alt haritaları da indirerek ay/yıl bazlı parçalı haritalarda daha geniş arama yapar. Tarih aralığı yapılandırması ile uyumsuz aylara ait alt haritalar indirilmeyerek ağ yükü azaltılır.
-
-\subsection{Konum nesnesi ve jeokodlama}
-Konum, iki bileşenli saklanır: (i) kullanıcıya gösterilecek metin (ör.\ mahalle/cadde/ilçe); (ii) harita üzerinde işaretleme için enlem-boylam. Metinden konum çıkarımı; ilçe isimleri ve adres benzeri kalıpların sezgisel yakalanmasına dayanır. Jeokodlama servisinden sonuç alınamazsa, ilgili ilçenin merkez koordinatlarının çok küçük bir rastgele sapma ile kullanılması, haritada ``yaklaşık'' bir dağılım sağlar.
-
-\subsection{Tekrar haber birleştirme stratejisi}
-Tekrar kontrolü iki aşamalıdır: (i) URL daha önce kaydedilmişse doğrudan atlama; (ii) metin benzerliği ile aynı olayı anlatan farklı URL'leri birleştirme. İkinci aşama etkinse, her haber için gömütleme vektörü hesaplanır ve veritabanında gömütlemesi bulunan kayıtlarla kosinüs benzerliği ölçülür. En yüksek benzerlik $\\geq 0{,}90$ ise yeni kaynak, mevcut kaydın \texttt{sources} dizisine eklenir ve tekil bir haber girdisi korunur.
 
 \begin{table}[!t]
-\\centering
-\\caption{Sistem bileşenleri ve kullanılan teknolojiler}
-\\label{tab:tech}
-\\begin{tabular}{@{}p{0.30\\linewidth}p{0.62\\linewidth}@{}}
-\\toprule
-\\textbf{Bileşen} & \\textbf{Teknoloji / Araç} \\\\
-\\midrule
-Sunucu & Python, Flask, Flask-CORS, schedule \\\\
-Veritabanı & MongoDB, PyMongo, GeoJSON Point \\\\
-Kazıma & requests, BeautifulSoup, lxml, cloudscraper (yedek) \\\\
-NLP & Metin temizleme, anahtar kelime tabanlı sınıflandırma \\\\
-Tekrar tespiti & sentence-transformers, cosine similarity (scikit-learn) \\\\
-Harita & Google Maps JavaScript API \\\\
-\\bottomrule
-\\end{tabular}
-\\end{table}
+\centering
+\caption{Sistem bileşenleri ve kullanılan teknolojiler}
+\label{tab:tech}
+\begin{tabular}{@{}p{0.28\linewidth}p{0.64\linewidth}@{}}
+\toprule
+\textbf{Bileşen} & \textbf{Teknoloji / Araç} \\
+\midrule
+Sunucu & Python, Flask, Flask-CORS, schedule \\
+Veritabanı & MongoDB, PyMongo, GeoJSON Point \\
+Kazıma & requests, BeautifulSoup, lxml, cloudscraper \\
+NLP / Sınıflandırma & Anahtar kelime tabanlı puanlama sistemi \\
+Tekrar tespiti & sentence-transformers, cosine similarity \\
+Konum çıkarımı & Regex tabanlı ilçe/mahalle/cadde/sokak tespiti \\
+Jeokodlama & Nominatim (OSM), Google Geocoding API \\
+Harita & Google Maps JavaScript API \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\section{İşleme Boru Hattı}
-Kazıyıcıdan gelen her makale sırasıyla işlenir:
+%==============================================================
+\section{Haber Kaynakları ve Toplama}
+Beş yerel haber sitesi desteklenmektedir: Çağdaş Kocaeli, Özgür Kocaeli, Ses Kocaeli, Bizim Yaka ve Yeni Kocaeli. İlk dört kaynak ortak CMS yapısına sahip olduğundan \texttt{CommonCMSScraper} türevleri; Yeni Kocaeli ise özel \texttt{YeniKocaeliScraper} ile taranır. Bot korumasına karşı \texttt{cloudscraper} yedek olarak kullanılır. Ana sayfa ayrıştırmasının yetersiz kaldığı durumlarda \texttt{sitemap.xml} ve RSS yolları devreye alınır; \texttt{lastmod} tarihleri ile tarih penceresine göre süzme yapılır.
+
+Kazıma işlemi iki şekilde tetiklenebilir: (i) uygulama çalışırken \texttt{schedule} ile 6 saatte bir otomatik; (ii) \texttt{POST /api/scrape} API çağrısı ile manuel.
+
+%==============================================================
+\section{Anahtar Kelime Tabanlı Sınıflandırma}
+\label{sec:classification}
+Her haber başlık ve içerik metni birleştirilerek beş kategori için anahtar kelime taramasından geçirilir. Her kategori için \emph{birincil} (primary, 3 puan) ve \emph{ikincil} (secondary, 1 puan) olmak üzere iki düzey anahtar kelime tanımlıdır. Sınıflandırma şu kurallara göre çalışır:
+
 \begin{enumerate}
-    \item \textbf{URL kontrolü:} Aynı haber URL'si veritabanında varsa atlanır.
-    \item \textbf{Metin temizleme:} \texttt{TextCleaner} ile içerik sadeleştirilir.
-    \item \textbf{Sınıflandırma:} \texttt{NewsClassifier}, Türkçe anahtar kelime kümeleriyle olay türünü belirler: Trafik Kazası, Yangın, Elektrik Kesintisi, Hırsızlık, Kültürel Etkinlikler; eşleşme yoksa ``Diğer''e düşer ve haritaya alınmayabilir.
-    \item \textbf{Konum:} \texttt{LocationExtractor} başlık ve metinden ilçe veya adres ipuçları çıkarır. \texttt{GeocodingService} (yapılandırmaya göre Nominatim veya Google) ile koordinat üretilir; sonuç yoksa ilçe merkezlerine yakın rastgele küçük sapma ile yedek nokta atanabilir.
-    \item \textbf{Tekrar tespiti:} Etkinse, başlık ve içeriğin ilk kısmından oluşan metin \texttt{sentence-transformers} modeli (\texttt{emrecan/bert-base-turkish-cased-mean-nli-stsb-tr}) ile gömülür; veritabanındaki gömütleleriyle kosinüs benzerliği hesaplanır. Eşik değeri 0{,}90 (\texttt{SIMILARITY\_THRESHOLD}) aşılırsa yeni kaynak, mevcut haberin \texttt{sources} listesine eklenir.
-    \item \textbf{Kalıcılık:} \texttt{NewsModel} yapısıyla belge oluşturulur ve MongoDB'ye yazılır.
+    \item Başlık iki kez, içerik bir kez birleştirilerek arama metni oluşturulur.
+    \item Her kategori için tüm anahtar kelimeler taranır ve toplam puan hesaplanır.
+    \item \textbf{En az bir birincil} anahtar kelime eşleşmesi zorunludur; yalnızca ikincil kelimelerle eşleşen kategoriler değerlendirilmez.
+    \item Minimum puan eşiği 3,0'dır (en az bir birincil eşleşme).
+    \item Eşitlik durumunda öncelik sırası uygulanır: Trafik Kazası $>$ Yangın $>$ Elektrik Kesintisi $>$ Hırsızlık $>$ Kültürel Etkinlikler.
+    \item Hiçbir kategoriye uymayan haberler ``Diğer'' olarak işaretlenir ve haritada gösterilmez.
 \end{enumerate}
 
-\subsection{API ile tetikleme ve filtreleme}
-Kazıma işlemi sistem çalışırken API üzerinden tekrar tetiklenebilir. Bu sayede zamanlayıcıya ek olarak manuel güncelleme yapılabilir. İstemci, tarih aralığı, ilçe ve kategori seçimlerini API sorgu parametreleriyle gönderir. Sunucu tarafında varsayılan ``son üç takvim günü'' kuralı uygulanır; aralık dışına taşan seçimler bu pencereye sıkıştırılır.
+\subsection{Trafik Kazası Anahtar Kelimeleri}
+\textbf{Birincil:} trafik kazası, kaza sonucu, araç kazası, zincirleme kaza, feci kaza, kaza meydana geldi, tır kazası, otobüs kazası, motosiklet kazası, kaza yapan, kazada yaralanan, kazada ölen, kazada hayatını kaybetti, trafik kazasında.
+
+\textbf{İkincil:} çarpışma, çarpıştı, çarptı, takla attı, şarampole yuvarlandı, devrildi, sürücü yaralandı, yaralı kaldırıldı, ambulans sevk edildi, bariyerlere çarptı, refüje çıktı, kafa kafaya, sürücüsü hayatını kaybetti, fren yapamadı, kontrolden çıktı, kaldırıma çıktı, hız sınırını aştı, alkollü sürücü.
+
+\subsection{Yangın Anahtar Kelimeleri}
+\textbf{Birincil:} yangın çıktı, yangın meydana geldi, yangında, alevlere teslim, alevler sardı, alev alev yandı, yangınla mücadele, itfaiye ekipleri, yangın söndürme, yangına müdahale, alev aldı, yangın, çatısında yangın.
+
+\textbf{İkincil:} yanarak, yandı, alevler, itfaiye, dumana teslim, duman yükseldi, kül oldu, söndürüldü, kundaklama, kundaklandı, yangın ihbarı, ev yangını, fabrika yangını, orman yangını, araç yandı, şofben.
+
+\subsection{Elektrik Kesintisi Anahtar Kelimeleri}
+\textbf{Birincil:} elektrik kesintisi, elektriksiz kalacak, elektrik kesilecek, enerji kesintisi, planlı kesinti, plansız kesinti, elektrik arızası, trafo arızası, elektrik verildi, elektrikler kesildi.
+
+\textbf{İkincil:} elektriksiz, karanlığa büründü, enerji nakil hattı, trafo patladı, SEDAŞ, enerji kesintisi, elektrik dağıtım, kesinti yaşanacak.
+
+\subsection{Hırsızlık / Dolandırıcılık Anahtar Kelimeleri}
+\textbf{Birincil:} hırsızlık, hırsız yakalandı, hırsızlık şüphelisi, hırsız, hırsızlar, ev soyan, dükkan soyan, iş yeri soyan, soygun, kapkaç, gasp etti, gasp edildi, gasp olayı, dolandırıcılık, dolandırıcı, dolandırıldı.
+
+\textbf{İkincil:} çaldı, çalıntı, çalınmış, çalınan, oto hırsızlık, motosiklet çalındı, araç çalındı, suç üstü yakalandı, sahte belge, sahte para, yağma, silahlı yağma.
+
+\subsection{Kültürel Etkinlikler Anahtar Kelimeleri}
+\textbf{Birincil:} konser, festival, sergi, tiyatro, etkinlik, gösteri, şenlik, panayır, kutlama, anma töreni, bayram kutlaması, kültür merkezi, sanat etkinliği, müzik dinletisi.
+
+\textbf{İkincil:} sahne alacak, sahneye çıkacak, biletler satışa, ücretsiz etkinlik, söyleşi, imza günü, kültürel program, sanat galerisi, halk oyunları, dans gösterisi, sinema, film gösterimi, müze, kitap fuarı, fuar, kongre.
+
+Sınıflandırma sonucu (\texttt{category} alanı) veritabanında her haber kaydıyla birlikte saklanır.
+
+%==============================================================
+\section{Konum Bilgisi Çıkarımı}
+\label{sec:location}
+Haber metninden konum çıkarımı dört aşamalı bir sezgisel (heuristic) yaklaşımla gerçekleştirilir. Tüm aşamalar başlık ve içerik metni birleştirilerek uygulanır.
+
+\subsection{1. Aşama -- İlçe Tespiti}
+Kocaeli'nin 12 ilçesi (İzmit, Gebze, Darıca, Körfez, Gölcük, Başiskele, Kartepe, Çayırova, Dilovası, Derince, Kandıra, Karamürsel) metinde regex kelime sınırı (\verb|\b|) ile aranır. Türkçe iyelik eki (\texttt{'}) ile biten kalıplar da desteklenir. Eşleşen ilk ilçe adı döndürülür.
+
+\subsection{2. Aşama -- Mahalle Tespiti}
+Her ilçe için önceden tanımlanmış mahalle listesi kullanılır. Sistemde toplam 12 ilçeye ait yaklaşık 100 mahalle adı kayıtlıdır. İlçe tespit edilmişse yalnızca o ilçeye ait mahalleler aranır; tespit edilmemişse tüm mahalleler taranır. Örnek mahalleler: İzmit için Yahyakaptan, Yenişehir, Kadıköy; Gebze için Sultan Orhan, Güzeller; Darıca için Bayramoğlu, Nene Hatun.
+
+\subsection{3. Aşama -- Cadde / Sokak Tespiti}
+Metin üzerinde Türkçe adres kalıpları regex ile aranır:
+\begin{itemize}
+    \item \texttt{[İsim] Caddesi / Cad.}
+    \item \texttt{[İsim] Sokak / Sok. / Sokağı}
+    \item \texttt{[İsim] Bulvarı / Bul.}
+\end{itemize}
+
+\subsection{4. Aşama -- Spesifik Yer Tespiti}
+Hastane, park, stadyum, meydan gibi belirgin yer isimleri ve önemli karayolları (D-100, TEM, O-4) regex kalıplarıyla aranır.
+
+\subsection{Konum Metninin Oluşturulması}
+Tespit edilen parçalar en spesifikten en genele doğru birleştirilerek konum metni oluşturulur. Örneğin: \emph{``Sabri Yalım Parkı, Kemalpaşa Mahallesi, İzmit, Kocaeli''}.
+
+Oluşturulan konum metni veritabanında \texttt{location.text} alanına kaydedilir ve bilgi penceresinde kullanıcıya gösterilir. Konum bulunamazsa haber haritada gösterilmez.
+
+\subsection{Jeokodlama ve Koordinat Üretimi}
+Konum metni elde edildikten sonra \texttt{GeocodingService} ile enlem-boylam koordinatlarına dönüştürülür. Nominatim (OpenStreetMap) veya Google Geocoding API yapılandırmaya göre seçilir.
+
+\begin{itemize}
+    \item Aynı konum metni için gereksiz tekrar API çağrısı yapılmaması adına sonuçlar \texttt{geocoding\_cache} koleksiyonunda saklanır.
+    \item Jeokodlama başarısız olursa ilçe merkezi koordinatları küçük rastgele sapma ile kullanılır.
+    \item Hiçbir şekilde koordinat üretilemediyse haber veritabanına kaydedilmez.
+    \item Dönüştürülen koordinatlar GeoJSON Point formatında \texttt{location.coordinates} alanına kaydedilir.
+    \item Koordinatların deniz üzerine düşüp düşmediği kontrol edilir; düşüyorsa ilçe merkezine taşınır.
+\end{itemize}
+
+İlçe ataması; haberin haritadaki koordinatına göre en yakın ilçe merkezi hesaplanarak yapılır. Bu sayede ilçe filtresi haritadaki marker konumlarıyla tutarlı çalışır.
+
+%==============================================================
+\section{Tekrar Tespiti ve Birleştirme}
+Aynı olayı anlatan farklı kaynaklardan gelen haberler iki aşamalı kontrol ile birleştirilir:
+
+\begin{enumerate}
+    \item \textbf{URL kontrolü:} Aynı haber URL'si veritabanında varsa doğrudan atlanır.
+    \item \textbf{Metin benzerliği:} Başlık ve içeriğin ilk kısmından oluşan metin, \texttt{emrecan/bert-base-turkish-cased-mean-nli-stsb-tr} modeli ile gömme vektörüne dönüştürülür. Veritabanındaki mevcut gömme vektörleriyle kosinüs benzerliği hesaplanır. Benzerlik $\geq$ 0,90 ise yeni kaynak, mevcut haberin \texttt{sources} dizisine eklenir.
+\end{enumerate}
+
+Birleştirilen haberlerde tüm kaynaklar listelenir; böylece kullanıcı aynı olayı hangi sitelerin paylaştığını görebilir.
+
+%==============================================================
+\section{Veri Modeli ve API}
+Her haber belgesi şu alanları içerir: \texttt{category}, \texttt{title}, \texttt{content}, \texttt{location} (text, district, GeoJSON Point), \texttt{publish\_date}, çoklu \texttt{sources} (site\_name, url, scraped\_at), \texttt{embedding} ve zaman damgaları.
+
+Temel API uç noktaları:
+\begin{itemize}
+    \item \texttt{GET /api/news} -- Sayfalama ve filtre ile haber listesi.
+    \item \texttt{GET /api/news/map} -- Harita için koordinatlı özet.
+    \item \texttt{GET /api/stats} -- Kategori ve ilçe bazlı istatistikler.
+    \item \texttt{GET /api/districts} -- İlçe listesi.
+    \item \texttt{POST /api/scrape} -- Boru hattını manuel tetikler.
+\end{itemize}
 
 \begin{lstlisting}
 POST /api/scrape
-
-GET /api/news?start_date=2026-03-28&end_date=2026-03-30T23:59:59
-
-GET /api/stats?district=Izmit&categories=Yangin,Trafik%20Kazasi
+GET  /api/news?start_date=2026-03-30
+     &end_date=2026-04-01T23:59:59
+GET  /api/stats?district=Izmit
+     &categories=Yangin,Trafik+Kazasi
 \end{lstlisting}
 
-\section{Veri Modeli ve API}
-Her haber öğesi özetle şu alanları içerir: \texttt{category}, \texttt{title}, \texttt{content}, \texttt{raw\_content}, \texttt{location} (\texttt{text}, \texttt{district}, GeoJSON \texttt{Point} koordinatları), \texttt{publish\_date}, çoklu \texttt{sources} (\texttt{site\_name}, \texttt{url}, \texttt{scraped\_at}), \texttt{embedding}, zaman damgaları.
+%==============================================================
+\section{Deneysel Değerlendirme}
+Sistem beş kaynaktan toplam 338 haber çekmiş; bunlardan 34'ü yeni kayıt, 10'u farklı kaynaklarda bulunan aynı haberin birleştirilmesi, 251'i tanımlı kategorilere uymayan ``Diğer'' sınıfı, 25'i konum bilgisi bulunamayan haberlerdir. Gömme tabanlı birleştirme; \%90,3--\%100 aralığında benzerlik puanlarıyla farklı başlıklara sahip aynı olayları başarıyla tespit etmiştir.
 
-Örnek uç noktalar:
-\begin{itemize}
-    \item \texttt{GET /api/news} --- sayfalama ve filtre; yanıtta \texttt{count} ve toplam eşleşen \texttt{total}.
-    \item \texttt{GET /api/news/map} --- harita için süzülmüş özet.
-    \item \texttt{GET /api/stats} --- filtrelerle uyumlu kategori ve ilçe sayımları.
-    \item \texttt{POST /api/scrape} --- boru hattını manuel çalıştırır.
-\end{itemize}
-
-API tarafında istemci sorguları varsayılan olarak ``son üç takvim günü'' (bugün ve önceki iki gün, gece yarısından anlık zamana) ile sınırlandırılır; kullanıcı aralığı bu pencere dışına taşarsa arka uç aralığı bu pencereye sıkıştırır. Böylece eski kayıtlar silinmeden saklanırken arayüz ve istatistikler güncel odaklı kalır.
-
-\section{Deneysel Değerlendirme ve Bulgular}
-Sistem, farklı kaynaklardan gelen haberlerin tekilleştirilmesi ve harita üzerinde anlamlı bir dağılım üretmesi açısından değerlendirilebilir. Bu projede temel başarı ölçütleri şunlardır: (i) aynı URL'nin tekrar kaydedilmemesi; (ii) farklı kaynaklardaki benzer içeriklerin tek haberde birleştirilmesi; (iii) harita işaretçileri için mümkün olduğunda koordinat üretimi; (iv) filtrelerin (tarih/ilçe/kategori) hem liste hem istatistikler üzerinde tutarlı çalışması.
-
-Gözlemler, gömütleme tabanlı yaklaşımın aynı olayın farklı başlıklarla verildiği durumlarda URL tabanlı kontrole göre belirgin avantaj sağladığını göstermektedir. Bununla birlikte, gömütleme hesabı maliyetlidir; bu nedenle geçmiş veri yükleme (backfill) veya hızlı tarama senaryolarında \texttt{EMBEDDINGS\_ENABLED=false} seçeneği ile performans/kalite dengesi kurulabilir.
+İlçe bazlı dağılım: İzmit (95), Gebze (10), Derince (7), Kandıra (7), Körfez (6), Dilovası (5), Gölcük (4), Karamürsel (3), Başiskele (3), Çayırova (2), Darıca (1), Kartepe (1).
 
 \section{Kısıtlar ve Tartışma}
-Sistem pratik bir prototip olarak aşağıdaki kısıtlara sahiptir:
-\\begin{itemize}
-  \\item \\textbf{Kazıma dayanıklılığı:} Site yapıları değiştikçe link çıkarımı güncellenmelidir. Bot korumaları (403 vb.) zaman zaman erişimi etkileyebilir.
-  \\item \\textbf{Jeokodlama doğruluğu:} Metinden konum çıkarımı sezgisel olduğundan, özellikle belirsiz ifadelerde yanlış ilçe eşlemesi olabilir. Sonuç yoksa ilçe merkezine düşmek yaklaşık gösterim sağlar.
-  \\item \\textbf{Tekrar eşiği:} 0{,}90 eşiği pratikte iyi çalışsa da olay türüne ve metin uzunluğuna göre ayarlanması gerekebilir.
-  \\item \\textbf{Zaman penceresi kuralı:} Son üç takvim günü kuralı, uygulamanın güncel haberleri hedeflemesi için uygundur; ancak tarihsel analiz için yapılandırmanın gevşetilmesi gerekir.
-\\end{itemize}
+\begin{itemize}
+  \item \textbf{Kazıma dayanıklılığı:} Site yapıları değiştikçe scraper güncellenmelidir. Bot korumaları erişimi etkileyebilir.
+  \item \textbf{Jeokodlama doğruluğu:} Belirsiz ifadelerde ilçe merkezine düşmek yaklaşık gösterim sağlar.
+  \item \textbf{Sınıflandırma:} Anahtar kelime tabanlı yaklaşım bakım gerektirir; derin öğrenme modelleri ile zenginleştirilebilir.
+  \item \textbf{Tekrar eşiği:} 0,90 eşiği pratikte iyi çalışsa da olay türüne göre ayarlanması gerekebilir.
+\end{itemize}
 
-\section{Ön Yüz}
-JavaScript, seçilen filtreleri API'ye iletir; haritada her haber için bilgi penceresinde başlık, tarih, kaynaklar ve varsa konum metni gösterilir. Tarih alanları yerel saat ile biçimlendirilir (UTC kayması önlenir). Google Maps API anahtarı sunucu tarafında \texttt{index.html} içine enjekte edilir.
-
+%==============================================================
 \section{Sonuç}
-Çalışma, çok kaynaklı yerel haber akışını tek bir jeo-etiketli veri kümesinde birleştirmeyi; gömütleme tabanlı tekrar birleştirmeyi; ve etkileşimli harita ile kullanıma sunmayı göstermektedir. Gelecek işler arasında sınıflandırmayı derin öğrenme modelleri ile zenginleştirmek, jeokodlama doğruluğunu doğrulama ile kalibre etmek ve gerçek zamanlı uyarılar eklenebilir.
+Çalışma, çok kaynaklı yerel haber akışını tek bir jeo-etiketli veri kümesinde birleştirmeyi; anahtar kelime tabanlı sınıflandırmayı; gömme tabanlı tekrar birleştirmeyi; ve etkileşimli harita ile kullanıma sunmayı başarıyla gerçekleştirmiştir. Gelecek işler arasında sınıflandırmayı derin öğrenme modelleri ile zenginleştirmek, jeokodlama doğruluğunu artırmak ve gerçek zamanlı uyarı sistemi eklemek sayılabilir.
 
 \begin{thebibliography}{00}
 \bibitem{flask} Pallets Projects, ``Flask Documentation,'' \url{https://flask.palletsprojects.com/}, erişim 2026.
 \bibitem{mongo} MongoDB Inc., ``MongoDB Manual,'' \url{https://www.mongodb.com/docs/}, erişim 2026.
 \bibitem{st} N. Reimers and I. Gurevych, ``Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks,'' \emph{Proc. EMNLP-IJCNLP}, 2019.
 \bibitem{maps} Google LLC, ``Maps JavaScript API,'' \url{https://developers.google.com/maps/documentation/javascript}, erişim 2026.
+\bibitem{nominatim} OpenStreetMap Foundation, ``Nominatim,'' \url{https://nominatim.org/}, erişim 2026.
 \end{thebibliography}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\columnwidth]{u.png}
+    \caption{Kocaeli haber haritası web arayüzü.}
+    \label{fig:ui}
+\end{figure}
 
 \balance
 

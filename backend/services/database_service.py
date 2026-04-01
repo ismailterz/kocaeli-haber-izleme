@@ -130,7 +130,6 @@ class DatabaseService:
         query: dict = {}
         if not filters:
             return query
-
         # category: single veya çoklu
         categories = filters.get("categories")
         category = filters.get("category")
@@ -139,9 +138,7 @@ class DatabaseService:
         elif category:
             query["category"] = category
 
-        if filters.get("district"):
-            query["location.district"] = filters["district"]
-
+        # Tarih aralığı
         start_date = filters.get("start_date")
         end_date = filters.get("end_date")
         if start_date and end_date:
@@ -150,6 +147,10 @@ class DatabaseService:
             query["publish_date"] = {"$gte": start_date}
         elif end_date:
             query["publish_date"] = {"$lte": end_date}
+
+        district = filters.get("district")
+        if district:
+            query["location.district"] = district
 
         return query
 
@@ -194,6 +195,42 @@ class DatabaseService:
 
         return stats
 
+    def fix_districts_by_coordinates(self) -> dict:
+        """Her haberin koordinatına göre en yakın ilçe merkezini bularak district alanını günceller."""
+        import math
+        stats = {"updated": 0, "already_ok": 0}
+
+        for doc in self.db.news.find(
+            {"location.coordinates": {"$ne": None}},
+            {"_id": 1, "location": 1}
+        ):
+            coords = doc.get("location", {}).get("coordinates", {})
+            if not coords or not coords.get("coordinates"):
+                continue
+            lng, lat = coords["coordinates"]
+
+            min_dist = float("inf")
+            nearest = None
+            for district, center in Config.DISTRICT_CENTERS.items():
+                dlat = lat - center["lat"]
+                dlng = lng - center["lng"]
+                dist = math.sqrt(dlat ** 2 + dlng ** 2)
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest = district
+
+            current = doc.get("location", {}).get("district")
+            if nearest == current:
+                stats["already_ok"] += 1
+            else:
+                self.db.news.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"location.district": nearest}}
+                )
+                stats["updated"] += 1
+
+        return stats
+
     @staticmethod
     def _is_on_land(lat: float, lng: float) -> bool:
         if not ((40.4 <= lat <= 41.2) and (29.2 <= lng <= 30.5)):
@@ -204,6 +241,33 @@ class DatabaseService:
             if south < lat < north:
                 return False
         return True
+
+    def reclassify_all_news(self) -> dict:
+        """Tüm haberleri güncel sınıflandırıcı ile yeniden kategorize eder."""
+        from processing.classifier import NewsClassifier, NewsCategory
+
+        stats = {"updated": 0, "removed": 0, "unchanged": 0}
+
+        for doc in self.db.news.find({}, {"_id": 1, "title": 1, "content": 1, "category": 1}):
+            title = doc.get("title", "")
+            content = doc.get("content", "")
+            old_category = doc.get("category", "")
+
+            new_category, _ = NewsClassifier.classify(title, content)
+
+            if new_category == NewsCategory.DIGER:
+                self.db.news.delete_one({"_id": doc["_id"]})
+                stats["removed"] += 1
+            elif new_category.value != old_category:
+                self.db.news.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"category": new_category.value}}
+                )
+                stats["updated"] += 1
+            else:
+                stats["unchanged"] += 1
+
+        return stats
 
     def clear_all(self):
         self.db.news.drop()

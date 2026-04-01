@@ -23,6 +23,7 @@ CATEGORY_KEYWORDS = {
             "tır kazası", "otobüs kazası", "motosiklet kazası",
             "kaza yapan", "kazada yaralanan", "kazada ölen",
             "kazada hayatını kaybetti", "trafik kazasında",
+            "kaza:", "kazada",
         ],
         "secondary": [
             "çarpışma", "çarpıştı", "çarptı", "takla attı",
@@ -31,7 +32,7 @@ CATEGORY_KEYWORDS = {
             "bariyerlere çarptı", "refüje çıktı", "kafa kafaya",
             "otomobil ile", "kamyon ile", "tır ile",
             "sürücüsü hayatını kaybetti", "makas atan",
-            "fren yapamadı", "kontrolden çıktı",
+            "fren yapamadı", "kontrolden çıktı", "kaldırıma çıktı",
             "hız sınırını aştı", "alkollü sürücü",
         ],
     },
@@ -41,6 +42,7 @@ CATEGORY_KEYWORDS = {
             "alevlere teslim", "alevler sardı", "alev alev yandı",
             "yangın haberi", "yangınla mücadele", "itfaiye ekipleri",
             "yangın söndürme", "yangına müdahale",
+            "alev aldı", "yangın", "çatısında yangın",
         ],
         "secondary": [
             "yanarak", "yandı", "alevler", "itfaiye",
@@ -48,7 +50,7 @@ CATEGORY_KEYWORDS = {
             "söndürüldü", "söndürme çalışması",
             "kundaklama", "kundaklandı", "yangın ihbarı",
             "ev yangını", "fabrika yangını", "orman yangını",
-            "oto yangın", "araç yandı",
+            "oto yangın", "araç yandı", "şofben",
         ],
     },
     NewsCategory.ELEKTRIK_KESINTISI: {
@@ -67,17 +69,18 @@ CATEGORY_KEYWORDS = {
     },
     NewsCategory.HIRSIZLIK: {
         "primary": [
-            "hırsızlık", "hırsız yakalandı", "çaldı", "çalıntı",
-            "soygun", "gasp", "gasp edildi", "kapkaç",
-            "ev soyan", "dükkan soyan", "iş yeri soyan",
-            "hırsızlık şüphelisi", "hırsız", "hırsızlar",
+            "hırsızlık", "hırsız yakalandı", "hırsızlık şüphelisi",
+            "hırsız", "hırsızlar", "ev soyan", "dükkan soyan",
+            "iş yeri soyan", "soygun", "kapkaç",
+            "gasp etti", "gasp edildi", "gasp olayı",
+            "dolandırıcılık", "dolandırıcı", "dolandırıldı",
         ],
         "secondary": [
-            "çalınmış", "ele geçirildi", "suç üstü yakalandı",
-            "parmak izi", "güvenlik kamerası", "suçüstü",
-            "oto hırsızlık", "motosiklet çalındı",
-            "dolandırıcılık", "dolandırıcı", "sahte",
-            "yağma", "silahlı yağma", "uyuşturucu",
+            "çaldı", "çalıntı", "çalınmış", "çalınan",
+            "oto hırsızlık", "motosiklet çalındı", "araç çalındı",
+            "suç üstü yakalandı", "suçüstü",
+            "sahte belge", "sahte para",
+            "yağma", "silahlı yağma",
         ],
     },
     NewsCategory.KULTUREL_ETKINLIK: {
@@ -110,31 +113,43 @@ PRIORITY_ORDER = [
 class NewsClassifier:
 
     @staticmethod
-    def _calculate_score(text: str, keywords: dict) -> float:
+    def _calculate_score(text: str, keywords: dict) -> tuple[float, bool]:
+        """Skor ve en az bir primary eşleşmesi olup olmadığını döner."""
         text_lower = text.lower()
         score = 0.0
+        has_primary = False
         for keyword in keywords.get("primary", []):
             if keyword.lower() in text_lower:
                 score += 3.0
+                has_primary = True
         for keyword in keywords.get("secondary", []):
             if keyword.lower() in text_lower:
                 score += 1.0
-        return score
+        return score, has_primary
 
     @classmethod
     def classify(cls, title: str, content: str) -> tuple[NewsCategory, dict]:
         combined_text = f"{title} {title} {content}"
 
         scores = {}
+        has_primary_map = {}
         for category in PRIORITY_ORDER:
             keywords = CATEGORY_KEYWORDS[category]
-            scores[category] = cls._calculate_score(combined_text, keywords)
+            score, has_primary = cls._calculate_score(combined_text, keywords)
+            scores[category] = score
+            has_primary_map[category] = has_primary
 
-        best_category = max(scores, key=scores.get)
-        if scores[best_category] < 2.0:
+        # En az bir primary keyword eşleşmesi olan kategoriler arasından seç
+        candidates = {c: s for c, s in scores.items() if has_primary_map.get(c)}
+
+        if not candidates:
             return NewsCategory.DIGER, scores
 
-        tied = [c for c, s in scores.items() if s == scores[best_category]]
+        best_category = max(candidates, key=candidates.get)
+        if candidates[best_category] < 3.0:
+            return NewsCategory.DIGER, scores
+
+        tied = [c for c, s in candidates.items() if s == candidates[best_category]]
         if len(tied) > 1:
             for category in PRIORITY_ORDER:
                 if category in tied:

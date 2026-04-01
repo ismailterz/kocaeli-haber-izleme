@@ -66,19 +66,23 @@ def start_scheduler():
     print("[Scheduler] Zamanlayıcı başlatıldı (6 saatte bir)")
 
 
-def fix_coordinates_on_startup():
+def fix_data_on_startup():
     try:
         from services.database_service import DatabaseService
         db = DatabaseService()
         result = db.fix_sea_coordinates()
         print(f"[Startup] Koordinat kontrolü: {result}")
+        district_result = db.fix_districts_by_coordinates()
+        print(f"[Startup] İlçe düzeltme (koordinata göre): {district_result}")
+        reclass_result = db.reclassify_all_news()
+        print(f"[Startup] Kategori düzeltme: {reclass_result}")
     except Exception as e:
-        print(f"[Startup] Koordinat düzeltme hatası: {e}")
+        print(f"[Startup] Startup hatası: {e}")
 
 
 if __name__ == "__main__":
     app = create_app()
-    fix_coordinates_on_startup()
+    fix_data_on_startup()
     start_scheduler()
     app.run(
         host="0.0.0.0",
