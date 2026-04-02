@@ -24,9 +24,15 @@ class YeniKocaeliScraper(BaseScraper):
         links = set()
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
+            if href.startswith(("whatsapp://", "intent://", "javascript:", "mailto:")):
+                continue
+            if "facebook.com/sharer" in href or "twitter.com/intent" in href or "wa.me/" in href:
+                continue
+            if "#" in href:
+                continue
             if "/haber/" in href and href.endswith(".html"):
                 full_url = urljoin(self.base_url, href)
-                if "yenikocaeli.com" in full_url:
+                if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
                     links.add(full_url)
 
         category_pages = [
@@ -40,9 +46,15 @@ class YeniKocaeliScraper(BaseScraper):
             if cat_soup:
                 for a_tag in cat_soup.find_all("a", href=True):
                     href = a_tag["href"]
+                    if href.startswith(("whatsapp://", "intent://", "javascript:", "mailto:")):
+                        continue
+                    if "facebook.com/sharer" in href or "twitter.com/intent" in href or "wa.me/" in href:
+                        continue
+                    if "#" in href:
+                        continue
                     if "/haber/" in href and href.endswith(".html"):
                         full_url = urljoin(self.base_url, href)
-                        if "yenikocaeli.com" in full_url:
+                        if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
                             links.add(full_url)
 
         return list(links)

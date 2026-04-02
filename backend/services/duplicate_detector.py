@@ -15,8 +15,9 @@ class DuplicateDetector:
     def __init__(self, db=None):
         self.db = db
         self.model = None
-        self.threshold = Config.SIMILARITY_THRESHOLD
-        self.enabled = getattr(Config, "EMBEDDINGS_ENABLED", True)
+        self.threshold = getattr(Config, "SIMILARITY_THRESHOLD", 0.9)
+        # Hız için NLP/Embedding modeli varsayılan olarak devre dışı bırakıldı
+        self.enabled = getattr(Config, "EMBEDDINGS_ENABLED", False)
 
     def _get_model(self):
         if not self.enabled:

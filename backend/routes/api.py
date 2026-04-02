@@ -94,10 +94,19 @@ def get_categories():
 
 @api_bp.route("/scrape", methods=["POST"])
 def trigger_scrape():
-    from services.scraping_pipeline import ScrapingPipeline
-    pipeline = ScrapingPipeline()
-    result = pipeline.run()
-    return jsonify({"status": "ok", "data": result})
+    """DB sıfırla + pipeline çalıştır (Frontend 'Haberleri Çek' butonu)."""
+    try:
+        db = init_db()
+        db.clear_all()
+        print("[API] Veritabanı sıfırlandı.")
+
+        from services.scraping_pipeline import ScrapingPipeline
+        pipeline = ScrapingPipeline()
+        result = pipeline.run()
+        return jsonify({"status": "ok", "data": result})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 def _parse_filters(args) -> dict:

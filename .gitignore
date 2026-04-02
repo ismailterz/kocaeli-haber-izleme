@@ -32,3 +32,7 @@ Thumbs.db
 
 # MongoDB data
 data/db/
+
+# Claude rules and context
+.claude/
+CLAUDE.md

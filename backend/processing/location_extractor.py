@@ -1,6 +1,8 @@
 """
 Konum bilgisi çıkarımı modülü.
 Haber metninden adres, mahalle, ilçe, sokak bilgisi çıkarır.
+Hibrit: Regex tabanlı konum + Türkçe ek/context tabanlı NER fallback.
+spaCy gerektirmez; sentence-transformers ile uyumludur.
 """
 
 import re
@@ -65,14 +67,9 @@ KOCAELI_NEIGHBORHOODS = {
     ],
 }
 
-LOCATION_INDICATORS = [
-    r"(?:Mah(?:allesi)?\.?)",
-    r"(?:Cad(?:desi)?\.?)",
-    r"(?:Sok(?:ak|ağı)?\.?)",
-    r"(?:Bul(?:varı)?\.?)",
-    r"(?:Mevki(?:i|si)?)",
-    r"(?:Semti?)",
-]
+# Türkçe konum eklerini yakalayan ek desen listesi
+# Örn: "Gebze'de", "İzmit'te", "Darıca'da"
+_DISTRICT_SUFFIX_PATTERN = r"['\u2019']?(?:de|da|te|ta|den|dan|ten|tan|ye|ya|e|a|nin|nın|nün|nun|in|ın|ün|un)?\b"
 
 
 class LocationExtractor:
@@ -83,9 +80,10 @@ class LocationExtractor:
             return None
         text_lower = text.lower()
         for district in Config.KOCAELI_DISTRICTS:
+            d_lower = district.lower()
             patterns = [
-                rf'\b{re.escape(district.lower())}\b',
-                rf'\b{re.escape(district.lower())}[\'\u2019]',
+                rf'\b{re.escape(d_lower)}\b',
+                rf"\b{re.escape(d_lower)}['\u2019]",
             ]
             for pattern in patterns:
                 if re.search(pattern, text_lower):
@@ -144,15 +142,51 @@ class LocationExtractor:
                 return match.group(1).strip()
         return None
 
+    @staticmethod
+    def _context_extract_district(text: str) -> str | None:
+        """
+        Regex Fallback:
+        Türkçe konum bağlamı kalıplarıyla ilçe tespit eder.
+        Örn: "Gebze ilçesinde", "İzmit'te meydana gelen", "Darıca'daki olay"
+        """
+        if not text:
+            return None
+
+        for district in Config.KOCAELI_DISTRICTS:
+            d_esc = re.escape(district)
+            # Türkçe ek varlığıyla birlikte konum bağlamı kalıpları
+            context_patterns = [
+                # "Gebze ilçesinde / ilçesindeki"
+                rf'\b{d_esc}\s+ilçesi',
+                # "Gebze'de, Gebze'deki, Gebze'nin"
+                rf"{d_esc}['\u2019][a-züşöçığ]{{1,5}}\b",
+                # "Gebze sınırları içinde / merkezi"
+                rf'\b{d_esc}\s+(?:sınırları|merkezi|bölgesi|semtinde)',
+            ]
+            for pattern in context_patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    return district
+
+        return None
+
     @classmethod
     def extract(cls, title: str, content: str) -> dict:
         combined = f"{title} {content}"
 
+        # --- Adım 1: Doğrudan regex eşleme ---
         district = cls.extract_district(combined)
         neighborhood = cls.extract_neighborhood(combined, district)
         street = cls.extract_street_address(combined)
         specific = cls.extract_specific_location(combined)
 
+        # --- Adım 2: İlçe bulunamadıysa bağlam tabanlı NER fallback ---
+        if not district:
+            district = cls._context_extract_district(combined)
+            # Yeni bulunan ilçeye göre mahalle aramasını tekrar dene
+            if district and not neighborhood:
+                neighborhood = cls.extract_neighborhood(combined, district)
+
+        # --- Sonuç oluştur ---
         location_text_parts = []
         if specific:
             location_text_parts.append(specific)

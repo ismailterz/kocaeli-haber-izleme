@@ -39,6 +39,7 @@ let map;
 let markers = [];
 let infoWindow;
 
+/* ===== Harita Başlatma ===== */
 function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
         center: KOCAELI_CENTER,
@@ -67,9 +68,9 @@ function initMap() {
     loadAndDisplayNews();
 }
 
+/* ===== Tarih Yardımcıları ===== */
 function setDefaultDates() {
     const now = new Date();
-    // Son 3 takvim günü: bugün + önceki 2 gün
     const threeDaysAgo = new Date(now);
     threeDaysAgo.setHours(0, 0, 0, 0);
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
@@ -85,6 +86,7 @@ function formatDateForInput(date) {
     return `${y}-${m}-${d}`;
 }
 
+/* ===== API ===== */
 async function apiCall(endpoint, params = {}) {
     const url = new URL(`${API_BASE}${endpoint}`, window.location.origin);
     Object.entries(params).forEach(([key, val]) => {
@@ -103,6 +105,7 @@ async function apiCall(endpoint, params = {}) {
     }
 }
 
+/* ===== Filtreler ===== */
 function getSelectedCategories() {
     const checkboxes = document.querySelectorAll("#categoryFilters input:checked");
     return Array.from(checkboxes).map((cb) => cb.value);
@@ -119,9 +122,7 @@ function getFilters() {
     const startDate = startEl.value;
     const endDate = endEl.value;
 
-    // Kural: UI tarafında da son 3 gün ile sınırla
     const now = new Date();
-    // Son 3 takvim günü: bugün + önceki 2 gün (00:00'dan itibaren)
     const windowStart = new Date(now);
     windowStart.setHours(0, 0, 0, 0);
     windowStart.setDate(windowStart.getDate() - 2);
@@ -136,7 +137,6 @@ function getFilters() {
     if (clampedEnd > now) clampedEnd = now;
     if (clampedEnd < clampedStart) clampedEnd = clampedStart;
 
-    // input'ları da güncelle (kullanıcı neyle filtrelediğini görsün)
     startEl.value = formatDateForInput(clampedStart);
     endEl.value = formatDateForInput(clampedEnd);
 
@@ -146,6 +146,7 @@ function getFilters() {
     return filters;
 }
 
+/* ===== İlçeler ===== */
 async function loadDistricts() {
     const result = await apiCall("/districts");
     if (!result || !result.data) return;
@@ -159,7 +160,8 @@ async function loadDistricts() {
     });
 }
 
-async function loadStats() {
+/* ===== İstatistikler ===== */
+async function loadStats(mapMarkerCount) {
     const filters = getFilters();
     const selectedCategories = getSelectedCategories();
     const result = await apiCall("/stats", {
@@ -171,11 +173,19 @@ async function loadStats() {
     const grid = document.getElementById("statsGrid");
     const stats = result.data;
 
+    const mapCountHtml = mapMarkerCount !== undefined
+        ? `<div class="stat-card">
+               <div class="stat-value" style="color: #34a853">${mapMarkerCount}</div>
+               <div class="stat-label">Haritada Görünen</div>
+           </div>`
+        : "";
+
     grid.innerHTML = `
         <div class="stat-card">
             <div class="stat-value">${stats.total || 0}</div>
             <div class="stat-label">Toplam Haber</div>
         </div>
+        ${mapCountHtml}
         ${Object.entries(stats.by_category || {})
             .map(
                 ([cat, count]) => `
@@ -189,31 +199,48 @@ async function loadStats() {
     `;
 }
 
+/* ===== Ana Yükleme ===== */
 async function loadAndDisplayNews() {
     const filters = getFilters();
     const selectedCategories = getSelectedCategories();
 
     clearMarkers();
 
+    // Harita verisi
     const mapResult = await apiCall("/news/map", filters);
+    let mapMarkerCount = 0;
+    let mappedNewsIds = new Set();
+    
     if (mapResult && mapResult.data) {
         const filteredMapData = mapResult.data.filter((news) =>
             selectedCategories.includes(news.category)
         );
-        filteredMapData.forEach((news) => addMarker(news));
+        filteredMapData.forEach((news) => {
+            addMarker(news);
+            // Sadece koordinatı düzgün (haritada gösterilen) haberlerin ID'sini alıyoruz
+            const coords = news.location?.coordinates?.coordinates;
+            if (coords && coords.length >= 2 && isOnLand(coords[1], coords[0])) {
+                mappedNewsIds.add(news._id);
+            }
+        });
+        mapMarkerCount = markers.length;
     }
 
+    // Liste verisi
     const listResult = await apiCall("/news", { ...filters, limit: 50 });
     if (listResult && listResult.data) {
+        // Haritada eksik çıkan noktalarla senkronizasyon için listeyi sadece haritada var olanlarla kısıtlıyoruz
         const filteredListData = listResult.data.filter((news) =>
-            selectedCategories.includes(news.category)
+            selectedCategories.includes(news.category) && mappedNewsIds.has(news._id)
         );
         displayNewsList(filteredListData);
     }
 
-    loadStats();
+    // İstatistikleri güncelle (harita marker sayısını da gönder)
+    loadStats(mapMarkerCount);
 }
 
+/* ===== Harita – Kara Parçası Kontrolü ===== */
 function isOnLand(lat, lng) {
     if (lat < 40.4 || lat > 41.2 || lng < 29.2 || lng > 30.5) return false;
     if (lng >= 29.35 && lng <= 29.97) {
@@ -224,6 +251,7 @@ function isOnLand(lat, lng) {
     return true;
 }
 
+/* ===== Marker Ekleme ===== */
 function addMarker(news) {
     const coords = news.location?.coordinates?.coordinates;
     if (!coords || coords.length < 2) return;
@@ -237,6 +265,7 @@ function addMarker(news) {
         position: { lat, lng },
         map: map,
         title: news.title,
+        newsId: news._id, // Haritada var olanları listeyle eşlemek için ID'sini tutuyoruz
         icon: {
             path: google.maps.SymbolPath.CIRCLE,
             fillColor: config.color,
@@ -250,7 +279,6 @@ function addMarker(news) {
 
     marker.addListener("click", () => {
         const sources = news.sources || [];
-        const firstSource = sources[0] || {};
         const publishDate = news.publish_date
             ? new Date(news.publish_date).toLocaleDateString("tr-TR", {
                   day: "numeric",
@@ -261,34 +289,36 @@ function addMarker(news) {
               })
             : "Tarih bilinmiyor";
 
-        const sourcesHtml = sources
-            .map(
-                (s) =>
-                    `<span style="font-size:11px; color:#5f6368;">📰 ${s.site_name}</span>`
-            )
-            .join("<br>");
-
         const locationText = (news.location && news.location.text) ? String(news.location.text) : "";
+
+        // KRİTİK: sources dizisini .map() ile dönüp tüm kaynakları listele
+        const sourcesListHtml = sources
+            .map(
+                (s) => `
+                <div class="info-source-row">
+                    <span class="info-source-name">📰 ${s.site_name || "Bilinmeyen Kaynak"}</span>
+                    ${s.url
+                        ? `<a href="${s.url}" target="_blank" class="info-window-btn">Habere Git →</a>`
+                        : ""
+                    }
+                </div>`
+            )
+            .join("");
 
         const content = `
             <div class="info-window">
                 <h3>${news.title}</h3>
                 <div class="info-window-meta">
                     <span>📅 ${publishDate}</span>
-                    ${sourcesHtml}
                 </div>
                 ${
                     locationText
                         ? `<div style="margin-top:8px; font-size:12px; color:#3c4043;">📍 ${locationText}</div>`
                         : ""
                 }
-                ${
-                    firstSource.url
-                        ? `<a href="${firstSource.url}" target="_blank" class="info-window-btn">
-                            Habere Git →
-                           </a>`
-                        : ""
-                }
+                <div class="info-sources-list">
+                    ${sourcesListHtml}
+                </div>
             </div>
         `;
 
@@ -304,6 +334,7 @@ function clearMarkers() {
     markers = [];
 }
 
+/* ===== Haber Listesi (Son Haberler Kartları) ===== */
 function displayNewsList(newsList) {
     const container = document.getElementById("newsList");
 
@@ -322,18 +353,43 @@ function displayNewsList(newsList) {
                   })
                 : "";
             const source = news.sources?.[0]?.site_name || "";
+            const sourceUrl = news.sources?.[0]?.url || "";
+            const sourceCount = (news.sources || []).length;
+            const sourceCountBadge = sourceCount > 1
+                ? `<span class="source-count-badge">${sourceCount} kaynak</span>`
+                : "";
+
+            // Konum bilgisi
+            const district = news.location?.district || "";
+            const locationText = news.location?.text || "";
+            const locationDisplay = district || locationText;
+
+            const hasCoords = news.location?.coordinates?.coordinates?.length >= 2;
+            const lat = hasCoords ? news.location.coordinates.coordinates[1] : null;
+            const lng = hasCoords ? news.location.coordinates.coordinates[0] : null;
 
             return `
             <div class="news-item ${config.cssClass || ""}" 
-                 onclick="focusOnNews('${news._id}', ${
-                news.location?.coordinates?.coordinates?.[1] || "null"
-            }, ${news.location?.coordinates?.coordinates?.[0] || "null"})">
+                 onclick="focusOnNews('${news._id}', ${lat}, ${lng})">
                 <div class="news-item-title">${news.title}</div>
+                ${locationDisplay
+                    ? `<div class="news-item-location">
+                        <span class="material-icons-round" style="font-size:12px;">location_on</span>
+                        ${locationDisplay}
+                       </div>`
+                    : ""
+                }
                 <div class="news-item-meta">
                     <span class="news-item-category" 
                           style="background: ${config.color || "#666"}">${news.category}</span>
                     <span>${publishDate}</span>
                     <span>${source}</span>
+                    ${sourceCountBadge}
+                    ${sourceUrl
+                        ? `<a href="${sourceUrl}" target="_blank" class="news-item-link" 
+                              onclick="event.stopPropagation()" title="Habere git">↗</a>`
+                        : ""
+                    }
                 </div>
             </div>
         `;
@@ -341,6 +397,7 @@ function displayNewsList(newsList) {
         .join("");
 }
 
+/* ===== Habere Odaklan ===== */
 function focusOnNews(newsId, lat, lng) {
     if (lat && lng) {
         map.panTo({ lat, lng });
@@ -358,7 +415,55 @@ function focusOnNews(newsId, lat, lng) {
     }
 }
 
-// Event listeners
+/* ===== Haberleri Çek (Scrape Fresh) ===== */
+async function triggerScrape() {
+    const btn = document.getElementById("scrapeBtn");
+    const spinner = document.getElementById("scrapeSpinner");
+    const icon = btn.querySelector(".scrape-icon");
+    const label = btn.querySelector(".scrape-label");
+
+    // Zaten çalışıyorsa engelle
+    if (btn.classList.contains("loading")) return;
+
+    btn.classList.add("loading");
+    icon.style.display = "none";
+    spinner.style.display = "inline-block";
+    label.textContent = "Çekiliyor...";
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE}/scrape`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const result = await response.json();
+
+        if (result.status === "ok") {
+            const data = result.data || {};
+            label.textContent = `✓ ${data.new_articles || 0} haber`;
+            // Haritayı güncelle
+            await loadAndDisplayNews();
+        } else {
+            label.textContent = "Hata!";
+            console.error("Scrape error:", result.message);
+        }
+    } catch (error) {
+        label.textContent = "Bağlantı hatası";
+        console.error("Scrape fetch error:", error);
+    }
+
+    // 3 saniye sonra butonu sıfırla
+    setTimeout(() => {
+        btn.classList.remove("loading");
+        icon.style.display = "";
+        spinner.style.display = "none";
+        label.textContent = "Haberleri Çek";
+        btn.disabled = false;
+    }, 3000);
+}
+
+/* ===== Event Listeners ===== */
 document.getElementById("filterBtn").addEventListener("click", () => {
     loadAndDisplayNews();
 });
@@ -370,6 +475,10 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     });
     setDefaultDates();
     loadAndDisplayNews();
+});
+
+document.getElementById("scrapeBtn").addEventListener("click", () => {
+    triggerScrape();
 });
 
 document.getElementById("mobileMenuBtn").addEventListener("click", () => {

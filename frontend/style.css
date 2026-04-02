@@ -39,7 +39,7 @@ body {
     width: 100vw;
 }
 
-/* Sidebar */
+/* ===== Sidebar ===== */
 .sidebar {
     width: 380px;
     min-width: 380px;
@@ -74,7 +74,70 @@ body {
     font-size: 28px;
 }
 
-/* Filter Sections */
+/* ===== Haberleri Çek Butonu ===== */
+.scrape-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    background: linear-gradient(135deg, #34a853, #0d9d51);
+    color: #fff;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.scrape-btn:hover {
+    background: linear-gradient(135deg, #2e9648, #0b8a47);
+    box-shadow: 0 2px 8px rgba(52, 168, 83, 0.35);
+    transform: translateY(-1px);
+}
+
+.scrape-btn:active {
+    transform: translateY(0);
+}
+
+.scrape-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+.scrape-btn.loading {
+    background: linear-gradient(135deg, #5f6368, #80868b);
+}
+
+.scrape-icon {
+    font-size: 20px;
+}
+
+.scrape-label {
+    font-size: 14px;
+}
+
+.scrape-spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== Filter Sections ===== */
 .filter-section {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
@@ -97,7 +160,7 @@ body {
     color: var(--primary);
 }
 
-/* Date Inputs */
+/* ===== Date Inputs ===== */
 .date-inputs {
     display: flex;
     align-items: center;
@@ -127,7 +190,7 @@ body {
     font-size: 12px;
 }
 
-/* Category Checkboxes */
+/* ===== Category Checkboxes ===== */
 .category-filters {
     display: flex;
     flex-direction: column;
@@ -182,7 +245,7 @@ body {
     transition: opacity 0.2s;
 }
 
-/* District Select */
+/* ===== District Select ===== */
 .district-select {
     width: 100%;
     padding: 8px 12px;
@@ -201,7 +264,7 @@ body {
     border-color: var(--primary);
 }
 
-/* Filter Buttons */
+/* ===== Filter Buttons ===== */
 .filter-btn {
     margin: 12px 20px 0;
     padding: 10px 16px;
@@ -239,7 +302,7 @@ body {
     font-size: 18px;
 }
 
-/* Stats Section */
+/* ===== Stats Section ===== */
 .stats-section {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
@@ -270,7 +333,7 @@ body {
     margin-top: 2px;
 }
 
-/* News List */
+/* ===== News List ===== */
 .news-list-section {
     padding: 16px 20px;
     flex: 1;
@@ -311,8 +374,20 @@ body {
     margin-bottom: 4px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+/* Haber kartı konum bilgisi */
+.news-item-location {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #1a73e8;
+    margin-bottom: 4px;
+    font-weight: 500;
 }
 
 .news-item-meta {
@@ -321,6 +396,7 @@ body {
     gap: 8px;
     font-size: 11px;
     color: var(--text-secondary);
+    flex-wrap: wrap;
 }
 
 .news-item-category {
@@ -331,6 +407,32 @@ body {
     color: #fff;
 }
 
+/* Kaynak sayısı badge */
+.source-count-badge {
+    background: #e8f0fe;
+    color: #1a73e8;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Habere git link ikonu */
+.news-item-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.news-item-link:hover {
+    background: #e8f0fe;
+}
+
 .loading {
     text-align: center;
     color: var(--text-secondary);
@@ -338,7 +440,7 @@ body {
     font-size: 14px;
 }
 
-/* Map Container */
+/* ===== Map Container ===== */
 .map-container {
     flex: 1;
     position: relative;
@@ -349,9 +451,9 @@ body {
     height: 100%;
 }
 
-/* Info Window */
+/* ===== Info Window ===== */
 .info-window {
-    max-width: 300px;
+    max-width: 320px;
     font-family: 'Inter', sans-serif;
 }
 
@@ -378,27 +480,55 @@ body {
     gap: 4px;
 }
 
+/* Çoklu kaynak listesi (InfoWindow) */
+.info-sources-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid #e8eaed;
+    padding-top: 10px;
+}
+
+.info-source-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.info-source-name {
+    font-size: 12px;
+    color: #5f6368;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
 .info-window-btn {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 12px;
+    padding: 5px 10px;
     background: var(--primary);
     color: #fff;
     border: none;
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     text-decoration: none;
     transition: background 0.2s;
+    white-space: nowrap;
 }
 
 .info-window-btn:hover {
     background: var(--primary-dark);
 }
 
-/* Mobile */
+/* ===== Mobile ===== */
 .mobile-menu-btn {
     display: none;
     position: absolute;
@@ -440,7 +570,7 @@ body {
     }
 }
 
-/* Scrollbar */
+/* ===== Scrollbar ===== */
 .sidebar::-webkit-scrollbar,
 .news-list::-webkit-scrollbar {
     width: 6px;

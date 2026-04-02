@@ -1,11 +1,6 @@
 """
 Flask uygulama giriş noktası.
-Scheduler ile otomatik scraping entegrasyonu.
 """
-
-import threading
-import schedule
-import time
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS

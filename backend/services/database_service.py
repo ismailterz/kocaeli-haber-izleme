@@ -154,13 +154,6 @@ class DatabaseService:
 
         return query
 
-    def get_recent_news(self, days: int = 3, limit: int = 20) -> list:
-        since = datetime.now() - timedelta(days=days)
-        return self.get_all_news(
-            filters={"start_date": since},
-            limit=limit
-        )
-
     def fix_sea_coordinates(self) -> dict:
         """Deniz üzerine düşen koordinatları ilçe merkezine taşır."""
         stats = {"fixed": 0, "removed": 0, "ok": 0}
@@ -271,5 +264,4 @@ class DatabaseService:
 
     def clear_all(self):
         self.db.news.drop()
-        self.db.geocoding_cache.drop()
         self._ensure_indexes()

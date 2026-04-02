@@ -8,5 +8,4 @@ sentence-transformers==3.4.0
 scikit-learn==1.6.0
 geopy==2.4.1
 python-dotenv==1.0.1
-schedule==1.2.2
 numpy==1.26.4
