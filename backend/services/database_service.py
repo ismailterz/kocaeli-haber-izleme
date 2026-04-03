@@ -125,6 +125,44 @@ class DatabaseService:
             "by_district": {s["_id"]: s["count"] for s in district_stats},
         }
 
+    def get_source_category_stats(self, filters: dict | None) -> dict:
+        """Her kaynak sitesi × kategori için sayım (birleşik haberde her kaynak ayrı satır)."""
+        query = self._build_query(filters)
+        match_stage = {"$match": query} if query else {"$match": {}}
+        pipeline = [
+            match_stage,
+            {"$unwind": "$sources"},
+            {
+                "$group": {
+                    "_id": {
+                        "site": {"$ifNull": ["$sources.site_name", "Bilinmeyen"]},
+                        "category": {"$ifNull": ["$category", "Diğer"]},
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"_id.site": 1, "_id.category": 1}},
+        ]
+        rows_raw = list(self.db.news.aggregate(pipeline))
+        rows = [
+            {
+                "site": r["_id"]["site"],
+                "category": r["_id"]["category"],
+                "count": r["count"],
+            }
+            for r in rows_raw
+        ]
+        by_site: dict[str, int] = {}
+        by_category: dict[str, int] = {}
+        for r in rows:
+            by_site[r["site"]] = by_site.get(r["site"], 0) + r["count"]
+            by_category[r["category"]] = by_category.get(r["category"], 0) + r["count"]
+        return {
+            "rows": rows,
+            "by_site": by_site,
+            "by_category": by_category,
+        }
+
     @staticmethod
     def _build_query(filters: dict | None) -> dict:
         query: dict = {}

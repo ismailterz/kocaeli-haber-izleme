@@ -81,7 +81,6 @@ class ScrapingPipeline:
 
         return stats
 
-<<<<<<< HEAD
     @staticmethod
     def _nearest_district(lat: float, lng: float) -> str:
         min_dist = float("inf")
@@ -92,29 +91,6 @@ class ScrapingPipeline:
                 min_dist = d
                 nearest = district
         return nearest
-=======
-    # Bozuk / genel kategori sayfası URL'lerini filtrele
-    _BROKEN_URL_PATTERNS = [
-        r'/kategori/', r'/category/', r'/etiket/', r'/tag/',
-        r'/sayfa/', r'/page/', r'/?$',
-    ]
-
-    @classmethod
-    def _is_valid_article_url(cls, url: str) -> bool:
-        """Genel kategori/tag sayfası olan URL'leri filtrele."""
-        if not url:
-            return False
-        import re
-        for pattern in cls._BROKEN_URL_PATTERNS:
-            if re.search(pattern, url):
-                # Sadece path'in sonu bu pattern ise filtrele
-                # Haber URL'leri genelde /haber/baslik-123.html gibi olur
-                from urllib.parse import urlparse
-                path = urlparse(url).path
-                if path.rstrip('/') == '' or re.search(pattern + r'$', path):
-                    return False
-        return True
->>>>>>> 55b53be (refactor: otomatik scraper kaldirildi ve gereksiz kodlar temizlendi)
 
     def _process_article(self, article: dict, stats: dict, site_stats: dict):
         source = article.get("source", {})

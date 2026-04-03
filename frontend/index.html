@@ -104,6 +104,11 @@
                 <span class="material-icons-round">restart_alt</span>
                 Sıfırla
             </button>
+            <button class="filter-btn danger" id="scrapeResetBtn" type="button">
+                <span class="material-icons-round">storage</span>
+                Veritabanını sıfırla ve tara
+            </button>
+            <p class="scrape-hint">Tüm haberler ve jeokodlama önbelleği silinir; ardından kaynaklardan yeniden toplama başlar. İşlem birkaç dakika sürebilir.</p>
 
             <!-- İstatistikler -->
             <div class="stats-section" id="statsSection">
@@ -131,6 +136,26 @@
         <!-- Harita -->
         <main class="map-container">
             <div id="map"></div>
+            <button type="button" class="source-detail-btn" id="sourceDetailBtn" title="Kaynak ve tür dağılımı">
+                <span class="material-icons-round">table_chart</span>
+                <span class="source-detail-btn-label">Kaynak özeti</span>
+            </button>
+            <div id="sourceDetailModal" class="detail-modal" aria-hidden="true">
+                <div class="detail-modal-backdrop" id="sourceDetailBackdrop"></div>
+                <div class="detail-modal-panel" role="dialog" aria-labelledby="sourceDetailTitle">
+                    <div class="detail-modal-header">
+                        <h2 id="sourceDetailTitle">Kaynak × tür dağılımı</h2>
+                        <button type="button" class="detail-modal-close" id="sourceDetailClose" aria-label="Kapat">
+                            <span class="material-icons-round">close</span>
+                        </button>
+                    </div>
+                    <p class="detail-modal-hint">
+                        Seçili tarih ve kenar çubuğu filtreleriyle eşleşen kayıtlar. Çoklu kaynaklı bir haberde her site ayrı satırda sayılır.
+                    </p>
+                    <div id="sourceDetailLoading" class="detail-modal-loading hidden">Yükleniyor…</div>
+                    <div id="sourceDetailContent" class="detail-modal-content"></div>
+                </div>
+            </div>
             <!-- Mobil menü butonu -->
             <button class="mobile-menu-btn" id="mobileMenuBtn">
                 <span class="material-icons-round">menu</span>
@@ -138,7 +163,7 @@
         </main>
     </div>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=8"></script>
     <script async defer
         src="https://maps.googleapis.com/maps/api/js?key=GOOGLE_MAPS_API_KEY&callback=initMap&language=tr">
     </script>

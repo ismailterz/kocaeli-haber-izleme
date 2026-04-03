@@ -5,15 +5,34 @@ Farklı CMS altyapısı kullanıyor: /haber/{category}/{slug}/{id}.html
 
 import re
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from scraper.base_scraper import BaseScraper
 from scraper.common_cms_scraper import parse_turkish_date
+
+# Gerçek haber: /haber/{kategori}/{slug}/{sayısal_id}.html  (sosyal / #anchor linkleri hariç)
+_YK_ARTICLE_PATH = re.compile(r"^/haber/[^/]+/[^/]+/\d+\.html$", re.I)
 
 
 class YeniKocaeliScraper(BaseScraper):
     def __init__(self):
         super().__init__("Yeni Kocaeli", "https://www.yenikocaeli.com")
+
+    @classmethod
+    def _is_article_url(cls, full_url: str) -> bool:
+        """Facebook/WhatsApp/#haber junk URL'lerini ele; sadece site içi makale yollarını kabul et."""
+        if not full_url or not isinstance(full_url, str):
+            return False
+        parsed = urlparse(full_url.strip())
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = (parsed.netloc or "").lower()
+        if "yenikocaeli.com" not in host:
+            return False
+        if any(x in host for x in ("facebook.com", "fb.com", "instagram.com")):
+            return False
+        path = parsed.path or ""
+        return bool(_YK_ARTICLE_PATH.match(path))
 
     def get_article_links(self) -> list:
         soup = self.fetch_page(self.base_url)
@@ -24,16 +43,11 @@ class YeniKocaeliScraper(BaseScraper):
         links = set()
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
-            if href.startswith(("whatsapp://", "intent://", "javascript:", "mailto:")):
+            if "/haber/" not in href:
                 continue
-            if "facebook.com/sharer" in href or "twitter.com/intent" in href or "wa.me/" in href:
-                continue
-            if "#" in href:
-                continue
-            if "/haber/" in href and href.endswith(".html"):
-                full_url = urljoin(self.base_url, href)
-                if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
-                    links.add(full_url)
+            full_url = urljoin(self.base_url, href)
+            if self._is_article_url(full_url):
+                links.add(full_url.split("#")[0])
 
         category_pages = [
             f"{self.base_url}/haber/polis-adliye.html",
@@ -46,16 +60,11 @@ class YeniKocaeliScraper(BaseScraper):
             if cat_soup:
                 for a_tag in cat_soup.find_all("a", href=True):
                     href = a_tag["href"]
-                    if href.startswith(("whatsapp://", "intent://", "javascript:", "mailto:")):
+                    if "/haber/" not in href:
                         continue
-                    if "facebook.com/sharer" in href or "twitter.com/intent" in href or "wa.me/" in href:
-                        continue
-                    if "#" in href:
-                        continue
-                    if "/haber/" in href and href.endswith(".html"):
-                        full_url = urljoin(self.base_url, href)
-                        if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
-                            links.add(full_url)
+                    full_url = urljoin(self.base_url, href)
+                    if self._is_article_url(full_url):
+                        links.add(full_url.split("#")[0])
 
         return list(links)
 
@@ -92,7 +101,7 @@ class YeniKocaeliScraper(BaseScraper):
                     if not loc_tag:
                         continue
                     url = (loc_tag.get_text() or "").strip()
-                    if not url or "/haber/" not in url:
+                    if not url or "/haber/" not in url or not self._is_article_url(url):
                         continue
                     lastmod_tag = u.find("lastmod")
                     lm_dt = None
@@ -114,7 +123,7 @@ class YeniKocaeliScraper(BaseScraper):
             if not loc_tag:
                 continue
             url = (loc_tag.get_text() or "").strip()
-            if not url or "/haber/" not in url:
+            if not url or "/haber/" not in url or not self._is_article_url(url):
                 continue
             lastmod_tag = u.find("lastmod")
             lm_dt = None

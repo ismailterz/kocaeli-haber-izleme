@@ -160,6 +160,95 @@ async function loadDistricts() {
     });
 }
 
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text == null ? "" : String(text);
+    return div.innerHTML;
+}
+
+function openSourceDetailModal() {
+    const modal = document.getElementById("sourceDetailModal");
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    loadSourceDetailPanel();
+}
+
+function closeSourceDetailModal() {
+    const modal = document.getElementById("sourceDetailModal");
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+async function loadSourceDetailPanel() {
+    const loading = document.getElementById("sourceDetailLoading");
+    const content = document.getElementById("sourceDetailContent");
+    loading.classList.remove("hidden");
+    content.innerHTML = "";
+
+    const filters = getFilters();
+    const selectedCategories = getSelectedCategories();
+    const result = await apiCall("/source-stats", {
+        ...filters,
+        categories: selectedCategories.join(","),
+    });
+
+    loading.classList.add("hidden");
+    if (!result || result.status !== "ok" || !result.data) {
+        content.innerHTML =
+            '<p class="detail-modal-hint">Veri alınamadı. API veya ağ hatası olabilir.</p>';
+        return;
+    }
+
+    const { rows = [], by_site = {}, by_category = {} } = result.data;
+    const sorted = [...rows].sort((a, b) => {
+        const s = String(a.site).localeCompare(String(b.site), "tr");
+        if (s !== 0) return s;
+        return String(a.category).localeCompare(String(b.category), "tr");
+    });
+
+    const sitePills = Object.entries(by_site)
+        .sort((x, y) => y[1] - x[1])
+        .map(
+            ([name, c]) =>
+                `<span class="detail-pill">${escapeHtml(name)} <span class="detail-pill-count">${c}</span></span>`
+        )
+        .join("");
+
+    const catPills = Object.entries(by_category)
+        .sort((x, y) => y[1] - x[1])
+        .map(
+            ([name, c]) =>
+                `<span class="detail-pill">${escapeHtml(name)} <span class="detail-pill-count">${c}</span></span>`
+        )
+        .join("");
+
+    content.innerHTML = `
+        <div class="detail-summary">
+            <div class="detail-summary-block">
+                <h3>Siteye göre (katkı adedi)</h3>
+                <div class="detail-pills">${sitePills || "—"}</div>
+            </div>
+            <div class="detail-summary-block">
+                <h3>Türe göre</h3>
+                <div class="detail-pills">${catPills || "—"}</div>
+            </div>
+        </div>
+        <div class="detail-table-wrap">
+            <table class="detail-table">
+                <thead><tr><th>Site</th><th>Tür</th><th>Adet</th></tr></thead>
+                <tbody>
+                    ${sorted
+                        .map(
+                            (r) =>
+                                `<tr><td>${escapeHtml(r.site)}</td><td>${escapeHtml(r.category)}</td><td>${r.count}</td></tr>`
+                        )
+                        .join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 /* ===== İstatistikler ===== */
 async function loadStats(mapMarkerCount) {
     const filters = getFilters();
@@ -481,8 +570,61 @@ document.getElementById("scrapeBtn").addEventListener("click", () => {
     triggerScrape();
 });
 
+document.getElementById("scrapeResetBtn").addEventListener("click", async () => {
+    const ok = window.confirm(
+        "Tüm haber kayıtları ve jeokodlama önbelleği silinecek, ardından tüm kaynaklardan yeniden tarama yapılacak. Devam edilsin mi?"
+    );
+    if (!ok) return;
+
+    const btn = document.getElementById("scrapeResetBtn");
+    const label = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML =
+        '<span class="material-icons-round">hourglass_top</span> Taranıyor…';
+
+    try {
+        const response = await fetch(`${API_BASE}/scrape`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reset_database: true }),
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json.status !== "ok") {
+            const msg = json.message || `HTTP ${response.status}`;
+            window.alert("Tarama başarısız: " + msg);
+            return;
+        }
+        await loadAndDisplayNews();
+        window.alert(
+            "Tamamlandı. Yeni: " +
+                (json.data?.new_articles ?? "?") +
+                ", birleştirilen: " +
+                (json.data?.duplicates_merged ?? "?")
+        );
+    } catch (e) {
+        console.error(e);
+        window.alert("İstek hatası: " + (e.message || String(e)));
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = label;
+    }
+});
+
 document.getElementById("mobileMenuBtn").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
+});
+
+document.getElementById("sourceDetailBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    openSourceDetailModal();
+});
+
+document.getElementById("sourceDetailClose").addEventListener("click", () => {
+    closeSourceDetailModal();
+});
+
+document.getElementById("sourceDetailBackdrop").addEventListener("click", () => {
+    closeSourceDetailModal();
 });
 
 document.getElementById("map").addEventListener("click", () => {

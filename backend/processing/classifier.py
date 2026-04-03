@@ -21,20 +21,23 @@ CATEGORY_KEYWORDS = {
     NewsCategory.TRAFIK_KAZASI: {
         "primary": [
             "trafik kazası", "trafik kazasi", "kaza sonucu", "araç kazası",
+            "arac kazasi", "servis kazası", "servis kazasi",
+            "yol kazası", "yol kazasi", "otoyol kazası", "otoyol kazasi",
             "zincirleme kaza", "feci kaza", "kaza meydana geldi",
             "tır kazası", "otobüs kazası", "motosiklet kazası",
             "kaza yapan", "kazada yaralanan", "kazada ölen",
             "kazada hayatını kaybetti", "trafik kazasında",
-            "kaza:", "kazada",
+            # Yalın "kaza" çıkarıldı (spor/sağlık metaforlarında çok yanlış pozitif üretiyordu).
+            # Araç/trafik bağlamına daha yakın fiiller:
+            "çarpıştı", "takla attı", "şarampole yuvarlandı", "devrildi",
+            "kontrolden çıktı", "bariyerlere çarptı", "refüje çıktı",
         ],
         "secondary": [
-            "çarpışma", "çarpıştı", "çarptı", "takla attı",
-            "şarampole yuvarlandı", "devrildi", "sürücü yaralandı",
-            "yaralı kaldırıldı", "ambulans sevk edildi",
-            "bariyerlere çarptı", "refüje çıktı", "kafa kafaya",
-            "otomobil ile", "kamyon ile", "tır ile",
+            "çarpışma", "çarptı",
+            "sürücü yaralandı", "yaralı kaldırıldı", "ambulans sevk edildi",
+            "kafa kafaya", "otomobil ile", "kamyon ile", "tır ile",
             "sürücüsü hayatını kaybetti", "makas atan",
-            "fren yapamadı", "kontrolden çıktı", "kaldırıma çıktı",
+            "fren yapamadı", "kaldırıma çıktı",
             "hız sınırını aştı", "alkollü sürücü",
         ],
     },

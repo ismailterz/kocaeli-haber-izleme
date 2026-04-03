@@ -76,6 +76,18 @@ def get_stats():
         return jsonify({"status": "ok", "data": {"total": 0, "by_category": {}, "by_district": {}}})
 
 
+@api_bp.route("/source-stats", methods=["GET"])
+def get_source_stats():
+    """Kaynak sitesi × kategori dağılımı (mevcut tarih / ilçe / kategori filtreleriyle)."""
+    try:
+        db = init_db()
+        filters = _parse_filters(request.args)
+        data = db.get_source_category_stats(filters=filters)
+        return jsonify({"status": "ok", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e), "data": {"rows": [], "by_site": {}, "by_category": {}}}), 500
+
+
 @api_bp.route("/districts", methods=["GET"])
 def get_districts():
     from config import Config
@@ -94,19 +106,29 @@ def get_categories():
 
 @api_bp.route("/scrape", methods=["POST"])
 def trigger_scrape():
-    """DB sıfırla + pipeline çalıştır (Frontend 'Haberleri Çek' butonu)."""
+    """Varsayılan: DB sıfırla ve tara. {\"reset_database\": false} ile yalnızca tarama."""
     try:
+        reset_database = True
+        if request.is_json:
+            body = request.get_json(silent=True)
+            if isinstance(body, dict) and "reset_database" in body:
+                reset_database = bool(body.get("reset_database"))
+
         db = init_db()
-        db.clear_all()
-        print("[API] Veritabanı sıfırlandı.")
+        if reset_database:
+            db.clear_all()
+            print("[API] Veritabanı sıfırlandı.")
 
         from services.scraping_pipeline import ScrapingPipeline
         pipeline = ScrapingPipeline()
         result = pipeline.run()
-        return jsonify({"status": "ok", "data": result})
+        return jsonify({
+            "status": "ok",
+            "data": result,
+            "database_reset": reset_database,
+        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 def _parse_filters(args) -> dict:
