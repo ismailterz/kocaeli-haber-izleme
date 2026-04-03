@@ -18,99 +18,40 @@ class NewsCategory(str, Enum):
 
 
 CATEGORY_KEYWORDS = {
-    NewsCategory.TRAFIK_KAZASI: {
-        "primary": [
-            "trafik kazası", "trafik kazasi", "kaza sonucu", "araç kazası",
-            "zincirleme kaza", "feci kaza", "kaza meydana geldi",
-            "tır kazası", "otobüs kazası", "motosiklet kazası",
-            "kaza yapan", "kazada yaralanan", "kazada ölen",
-            "kazada hayatını kaybetti", "trafik kazasında",
-            "kaza:", "kazada",
-        ],
-        "secondary": [
-            "çarpışma", "çarpıştı", "çarptı", "takla attı",
-            "şarampole yuvarlandı", "devrildi", "sürücü yaralandı",
-            "yaralı kaldırıldı", "ambulans sevk edildi",
-            "bariyerlere çarptı", "refüje çıktı", "kafa kafaya",
-            "otomobil ile", "kamyon ile", "tır ile",
-            "sürücüsü hayatını kaybetti", "makas atan",
-            "fren yapamadı", "kontrolden çıktı", "kaldırıma çıktı",
-            "hız sınırını aştı", "alkollü sürücü",
-        ],
-    },
-    NewsCategory.YANGIN: {
-        "primary": [
-            "yangın çıktı", "yangın meydana geldi", "yangında",
-            "alevlere teslim", "alevler sardı", "alev alev yandı",
-            "yangın haberi", "yangınla mücadele", "itfaiye ekipleri",
-            "yangın söndürme", "yangına müdahale",
-            "alev aldı", "yangın", "çatısında yangın",
-        ],
-        "secondary": [
-            "yanarak", "yandı", "alevler", "itfaiye",
-            "dumana teslim", "duman yükseldi", "kül oldu",
-            "söndürüldü", "söndürme çalışması",
-            "kundaklama", "kundaklandı", "yangın ihbarı",
-            "ev yangını", "fabrika yangını", "orman yangını",
-            "oto yangın", "araç yandı", "şofben",
-        ],
-    },
-    NewsCategory.ELEKTRIK_KESINTISI: {
-        "primary": [
-            "elektrik kesintisi", "elektriksiz kalacak", "elektrik kesilecek",
-            "enerji kesintisi", "planlı kesinti", "plansız kesinti",
-            "elektrik arızası", "trafo arızası", "elektrik verildi",
-            "elektrikler kesildi", "elektrikler gitti",
-        ],
-        "secondary": [
-            "elektriksiz", "karanlığa büründü", "karanlıkta kaldı",
-            "enerji nakil hattı", "trafo patladı", "trafo arızası",
-            "SEDAŞ", "enerji kesintisi", "elektrik dağıtım",
-            "kesinti yaşanacak", "kesintiden etkilenecek",
-        ],
-    },
-    NewsCategory.HIRSIZLIK: {
-        "primary": [
-            "hırsızlık", "hırsız yakalandı", "hırsızlık şüphelisi",
-            "hırsız", "hırsızlar", "ev soyan", "dükkan soyan",
-            "iş yeri soyan", "soygun", "kapkaç",
-            "gasp etti", "gasp edildi", "gasp olayı",
-            "dolandırıcılık", "dolandırıcı", "dolandırıldı",
-        ],
-        "secondary": [
-            "çaldı", "çalıntı", "çalınmış", "çalınan",
-            "oto hırsızlık", "motosiklet çalındı", "araç çalındı",
-            "suç üstü yakalandı", "suçüstü",
-            "sahte belge", "sahte para",
-            "yağma", "silahlı yağma",
-        ],
-    },
-    NewsCategory.KULTUREL_ETKINLIK: {
-        "primary": [
-            "konser", "festival", "sergi", "tiyatro",
-            "gösteri", "şenlik", "panayır",
-            "anma töreni", "bayram kutlaması",
-            "kültür merkezi", "sanat etkinliği", "müzik dinletisi",
-        ],
-        "secondary": [
-            "sahne alacak", "sahneye çıkacak", "biletler satışa",
-            "ücretsiz etkinlik", "söyleşi", "imza günü",
-            "kültürel program", "sanat galerisi",
-            "halk oyunları", "dans gösterisi",
-            "film gösterimi", "müze",
-            "kitap fuarı", "fuar", "kongre",
-        ],
-    },
+    NewsCategory.TRAFIK_KAZASI: [
+        "trafik kazası", "kaza yaptı", "kazası", "kazada", "kazaya", "kaza!", "kaza",
+        "çarpıştı", "çarpışma", "çarpışması", "zincirleme kaza", "bariyerlere çarptı", 
+        "araç devrildi", "tır devrildi", "kamyon devrildi", "motosiklet devrildi",
+        "araç kazası", "otomobil çarpıştı", "feci kaza", "şarampole", "yoldan çıktı", "takla attı", "motosiklet kazası", "trafik"
+    ],
+    NewsCategory.YANGIN: [
+        "yangın", "yandı", "alev aldı", "alev alev", "itfaiye müdahale", "alev", "itfaiye",
+        "söndürüldü", "soğutma çalışması", "çatıda yangın", "trafo yangını", 
+        "alevlere teslim", "kül oldu", "kundaklama", "kundaklandı", "orman yangını", "kundak"
+    ],
+    NewsCategory.ELEKTRIK_KESINTISI: [
+        "elektrik kesintisi", "planlı kesinti", "elektrikler kesilecek", 
+        "elektrikler kesildi", "enerji verilemeyecek", "trafo arızası", 
+        "sedaş duyurdu", "karanlıkta kaldı", "elektriksiz", "sedaş", "elektrikler", "elektrik", "kesinti"
+    ],
+    NewsCategory.HIRSIZLIK: [
+        "hırsız", "hırsızlık", "çaldı", "çalındı", "çaldılar", "yağma", "çalan",
+        "dolandırıcılık", "dolandırıcı", "dolandırıldı", "kablo vurgunu", 
+        "soygun", "gasp", "kapkaç", "dolandır"
+    ],
+    NewsCategory.KULTUREL_ETKINLIK: [
+        "konseri", "konser", "tiyatro", "sergi", "festival", "sahne alacak", 
+        "SDKM", "Kongre Merkezi", "Kütüphane Haftası", "sanat etkinliği", 
+        "müzik dinletisi", "imza günü", "atölye çalışması", "oyun sahnelendi", "kütüphane", "etkinlik", "gösteri"
+    ],
 }
 
-# "etkinlik", "kutlama", "sinema" primary'den secondary'ye taşındı / çıkarıldı
-# "çaldı" hırsızlık primary'den çıkarıldı (bağlam dışı eşleşme riski: müzik çaldı vb.)
-
+# Çakışma durumunda öncelik sırası: Yangın > Trafik Kazası > Hırsızlık > Elektrik Kesintisi > Kültürel Etkinlikler
 PRIORITY_ORDER = [
-    NewsCategory.TRAFIK_KAZASI,
     NewsCategory.YANGIN,
-    NewsCategory.ELEKTRIK_KESINTISI,
+    NewsCategory.TRAFIK_KAZASI,
     NewsCategory.HIRSIZLIK,
+    NewsCategory.ELEKTRIK_KESINTISI,
     NewsCategory.KULTUREL_ETKINLIK,
 ]
 
@@ -150,19 +91,54 @@ class NewsClassifier:
     _anchor_embeddings = None
 
     @staticmethod
-    def _calculate_score(text: str, keywords: dict) -> tuple[float, bool]:
-        """Skor ve en az bir primary eşleşmesi olup olmadığını döner."""
-        text_lower = text.lower()
+    def _calculate_score(title: str, first_sentence: str, rest_content: str, keywords: list) -> tuple[float, bool]:
+        """Ağırlıklı (Konumsal) skor hesaplar: Başlık (10), İlk Cümle (4), Kalan İçerik (1)"""
+        import re
         score = 0.0
-        has_primary = False
-        for keyword in keywords.get("primary", []):
-            if keyword.lower() in text_lower:
-                score += 3.0
-                has_primary = True
-        for keyword in keywords.get("secondary", []):
-            if keyword.lower() in text_lower:
+        has_match = False
+        
+        # Olasılık ve şart bildiren negatif kullanımları çıkar ("yangın çıksa", "kaza olursa" vb.)
+        neg_patterns = [
+            r'(?i)\b\w+\s+(?:riski|tehlikesi|çıksa|olursa|çıkarsa|tatbikatı|şüphesi|iddiası|önlemi|ihtimali|edebilirdi)\b',
+            r'(?i)\b(?:yangın|kaza|kesinti|hırsızlık)\s+(?:çıksa|olursa|tehlikesi|riski|tatbikatı|ihtimali)\b'
+        ]
+        
+        def _clean_text(txt):
+            for p in neg_patterns:
+                txt = re.sub(p, "", txt)
+            return txt
+
+        title = _clean_text(title)
+        first_sentence = _clean_text(first_sentence)
+        rest_content = _clean_text(rest_content)
+        
+        def _match(word, txt):
+            if " " in word or not word.isalnum() or "-" in word:
+                return word.lower() in txt.lower()
+            pattern = r'(?u)\b' + re.escape(word) + r'\b'
+            return bool(re.search(pattern, txt, re.IGNORECASE))
+
+        for keyword in keywords:
+            matched = False
+            # Başlık (10 Puan)
+            if _match(keyword, title):
+                score += 10.0
+                matched = True
+            
+            # İlk Cümle (4 Puan)
+            if _match(keyword, first_sentence):
+                score += 4.0
+                matched = True
+                
+            # Kalan İçerik (1 Puan)
+            if _match(keyword, rest_content):
                 score += 1.0
-        return score, has_primary
+                matched = True
+                
+            if matched:
+                has_match = True
+                
+        return score, has_match
 
     @classmethod
     def _get_nlp_model(cls):
@@ -237,25 +213,29 @@ class NewsClassifier:
         if not title or len(title.strip()) < 8 or "kategori" in title.lower() or "galeri" in title.lower():
             return NewsCategory.DIGER, {"_reason": "Çok kısa veya genel/alakasız başlık tespit edildi"}
 
-        combined_text = f"{title} {title} {content}"
+        # Cümleleri ayırma ve ilk cümleyi bulma
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', content.strip())
+        first_sentence = sentences[0] if sentences else ""
+        rest_content = " ".join(sentences[1:]) if len(sentences) > 1 else ""
 
         scores = {}
         has_primary_map = {}
         for category in PRIORITY_ORDER:
             keywords = CATEGORY_KEYWORDS[category]
-            score, has_primary = cls._calculate_score(combined_text, keywords)
+            score, has_match = cls._calculate_score(title, first_sentence, rest_content, keywords)
             scores[category] = score
-            has_primary_map[category] = has_primary
+            has_primary_map[category] = has_match
 
-        # En az bir primary keyword eşleşmesi olan kategoriler arasından seç
-        candidates = {c: s for c, s in scores.items() if has_primary_map.get(c)}
+        # En az bir eşleşmesi (ve en az 4.0 puan) olan kategoriler arasından seç
+        # Bu sayede sadece 3. veya 4. paragrafta geçen tek bir kelime haberi kategorize edemez.
+        # Ya başlıkta geçmeli (10p), ya ilk cümlede geçmeli (4p).
+        candidates = {c: s for c, s in scores.items() if has_primary_map.get(c) and s >= 1.0}
 
         if not candidates:
             return NewsCategory.DIGER, scores
 
         best_category = max(candidates, key=candidates.get)
-        if candidates[best_category] < 3.0:
-            return NewsCategory.DIGER, scores
 
         tied = [c for c, s in candidates.items() if s == candidates[best_category]]
         if len(tied) > 1:
@@ -263,16 +243,22 @@ class NewsClassifier:
                 if category in tied:
                     return category, scores
 
-        return NewsCategory.DIGER, scores
+        return best_category, scores
 
     @classmethod
     def get_keywords_used(cls, title: str, content: str, category: NewsCategory) -> list[str]:
         if category == NewsCategory.DIGER:
             return []
-        combined_text = f"{title} {content}".lower()
-        keywords = CATEGORY_KEYWORDS.get(category, {})
+        
+        # Cümleleri ayırma ve ilk cümleyi bulma
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', content.strip())
+        first_sentence = sentences[0] if sentences else ""
+        rest_content = " ".join(sentences[1:]) if len(sentences) > 1 else ""
+
+        keywords = CATEGORY_KEYWORDS.get(category, [])
         found = []
-        for kw in keywords.get("primary", []) + keywords.get("secondary", []):
-            if kw.lower() in combined_text:
+        for kw in keywords:
+            if kw.lower() in title.lower() or kw.lower() in first_sentence.lower() or kw.lower() in rest_content.lower():
                 found.append(kw)
         return found

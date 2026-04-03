@@ -5,31 +5,31 @@ const CATEGORY_CONFIG = {
         color: "#e74c3c",
         icon: "directions_car",
         cssClass: "trafik",
-        markerPath: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+        emoji: "🚗",
     },
     "Yangın": {
         color: "#e67e22",
         icon: "local_fire_department",
         cssClass: "yangin",
-        markerPath: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+        emoji: "🔥",
     },
     "Elektrik Kesintisi": {
         color: "#f1c40f",
         icon: "flash_off",
         cssClass: "elektrik",
-        markerPath: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+        emoji: "⚡",
     },
     "Hırsızlık": {
         color: "#8e44ad",
         icon: "warning",
         cssClass: "hirsizlik",
-        markerPath: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+        emoji: "🚨",
     },
     "Kültürel Etkinlikler": {
         color: "#2ecc71",
         icon: "celebration",
         cssClass: "kultur",
-        markerPath: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+        emoji: "🎭",
     },
 };
 
@@ -269,10 +269,14 @@ function addMarker(news) {
         icon: {
             path: google.maps.SymbolPath.CIRCLE,
             fillColor: config.color,
-            fillOpacity: 0.9,
+            fillOpacity: 0.95,
             strokeColor: "#fff",
             strokeWeight: 2,
-            scale: 10,
+            scale: 14,
+        },
+        label: {
+            text: config.emoji || "📍",
+            fontSize: "14px"
         },
         animation: google.maps.Animation.DROP,
     });
@@ -403,11 +407,7 @@ function focusOnNews(newsId, lat, lng) {
         map.panTo({ lat, lng });
         map.setZoom(14);
 
-        const targetMarker = markers.find(
-            (m) =>
-                Math.abs(m.getPosition().lat() - lat) < 0.0001 &&
-                Math.abs(m.getPosition().lng() - lng) < 0.0001
-        );
+        const targetMarker = markers.find((m) => m.newsId === newsId);
 
         if (targetMarker) {
             google.maps.event.trigger(targetMarker, "click");
@@ -451,16 +451,14 @@ async function triggerScrape() {
     } catch (error) {
         label.textContent = "Bağlantı hatası";
         console.error("Scrape fetch error:", error);
-    }
-
-    // 3 saniye sonra butonu sıfırla
-    setTimeout(() => {
+    } finally {
+        // İşlem bittikten (başarılı veya hatalı) sonra butonu sıfırla
         btn.classList.remove("loading");
         icon.style.display = "";
         spinner.style.display = "none";
         label.textContent = "Haberleri Çek";
         btn.disabled = false;
-    }, 3000);
+    }
 }
 
 /* ===== Event Listeners ===== */

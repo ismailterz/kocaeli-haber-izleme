@@ -5,11 +5,10 @@ class NewsModel:
     """Haber veri modeli"""
 
     @staticmethod
-    def create(title, content, raw_content, category, location, sources, publish_date, embedding=None):
+    def create(title, content, category, location, sources, publish_date, embedding=None):
         return {
             "title": title,
             "content": content,
-            "raw_content": raw_content,
             "category": category,
             "location": location,
             "sources": sources if isinstance(sources, list) else [sources],

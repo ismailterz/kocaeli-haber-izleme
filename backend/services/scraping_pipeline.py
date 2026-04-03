@@ -81,7 +81,6 @@ class ScrapingPipeline:
 
         return stats
 
-<<<<<<< HEAD
     @staticmethod
     def _nearest_district(lat: float, lng: float) -> str:
         min_dist = float("inf")
@@ -92,7 +91,7 @@ class ScrapingPipeline:
                 min_dist = d
                 nearest = district
         return nearest
-=======
+
     # Bozuk / genel kategori sayfası URL'lerini filtrele
     _BROKEN_URL_PATTERNS = [
         r'/kategori/', r'/category/', r'/etiket/', r'/tag/',
@@ -114,7 +113,6 @@ class ScrapingPipeline:
                 if path.rstrip('/') == '' or re.search(pattern + r'$', path):
                     return False
         return True
->>>>>>> 55b53be (refactor: otomatik scraper kaldirildi ve gereksiz kodlar temizlendi)
 
     def _process_article(self, article: dict, stats: dict, site_stats: dict):
         source = article.get("source", {})
@@ -163,8 +161,8 @@ class ScrapingPipeline:
             center = Config.DISTRICT_CENTERS.get(district)
             if center:
                 coordinates = {
-                    "latitude": center["lat"] + random.uniform(-0.005, 0.005),
-                    "longitude": center["lng"] + random.uniform(-0.005, 0.005),
+                    "latitude": center["lat"],
+                    "longitude": center["lng"],
                 }
 
         # Eğer hiçbir şekilde koordinat üretilemediyse, gereksinime göre bu haber işlenmez
@@ -188,7 +186,7 @@ class ScrapingPipeline:
             url=url,
         )
 
-        duplicate = self.duplicate_detector.find_duplicate(title, content)
+        duplicate = self.duplicate_detector.find_duplicate(title, content, category=category.value)
 
         if duplicate:
             self.db_service.update_news_sources(
@@ -207,7 +205,6 @@ class ScrapingPipeline:
         news_doc = NewsModel.create(
             title=title,
             content=content,
-            raw_content=raw_content,
             category=category.value,
             location=location,
             sources=[source_doc],

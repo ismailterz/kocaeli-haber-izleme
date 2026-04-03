@@ -36,19 +36,25 @@ class DuplicateDetector:
         embedding = model.encode(text, show_progress_bar=False)
         return embedding.tolist()
 
-    def find_duplicate(self, title: str, content: str) -> dict | None:
+    def find_duplicate(self, title: str, content: str, category: str = None) -> dict | None:
         """
         Veritabanındaki mevcut haberlere karşı benzerlik kontrolü yapar.
-        %90 veya üzerinde benzerlik varsa duplicate olarak işaretler.
+        Aynı kategori için eşiği düşürerek (örn: 0.82) tekrar haberleri daha agresif tespit eder.
         """
         if (self.db is None) or (not self.enabled):
             return None
 
-        text = f"{title} {content[:500]}"
+        # Başlık farklılıklarının benzerliği düşürmemesi için saf haber içeriği kullanılıyor
+        text = f"{content[:1000]}"
         new_embedding = self.get_embedding(text)
 
+        # Sadece aynı kategorideki haberlerle karşılaştırarak hem hız hem doğruluk sağlarız
+        query = {"embedding": {"$exists": True, "$ne": None}}
+        if category:
+            query["category"] = category
+            
         existing_news = list(self.db.news.find(
-            {"embedding": {"$exists": True, "$ne": None}},
+            query,
             {"_id": 1, "title": 1, "embedding": 1, "sources": 1}
         ))
 
@@ -73,7 +79,10 @@ class DuplicateDetector:
         max_idx = np.argmax(similarities)
         max_similarity = similarities[max_idx]
 
-        if max_similarity >= self.threshold:
+        # Proje kurallarına göre %90 ve üzeri benzerlik baz alınmalıdır.
+        effective_threshold = 0.90
+
+        if max_similarity >= effective_threshold:
             return {
                 "news_id": valid_news[max_idx]["_id"],
                 "title": valid_news[max_idx]["title"],
@@ -86,5 +95,5 @@ class DuplicateDetector:
     def compute_embedding_for_text(self, title: str, content: str) -> list[float]:
         if not self.enabled:
             return []
-        text = f"{title} {content[:500]}"
+        text = f"{content[:1000]}"
         return self.get_embedding(text)

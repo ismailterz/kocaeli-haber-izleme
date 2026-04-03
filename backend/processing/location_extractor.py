@@ -124,16 +124,54 @@ class LocationExtractor:
 
     @staticmethod
     def extract_specific_location(text: str) -> str | None:
-        """Spesifik yer isimleri (park, stadyum, hastane vb.)"""
+        """Spesifik yer isimleri (park, stadyum, hastane, üniversite vb.)"""
         if not text:
             return None
 
+        # Regex N-Gram Adres Sözlüğü Yaklaşımı (Hızlı spaCy alternatifi)
+        # Kocaeli'deki önemli merkezleri ve nokta atış yerleri doğrudan yakalar
+        specific_landmarks = [
+            r"Kocaeli Üniversitesi Araştırma ve Uygulama Hastanesi",
+            r"Kocaeli Üniversitesi Hastanesi",
+            r"Kocaeli Üniversitesi", r"KOÜ",
+            r"Kocaeli Şehir Hastanesi", r"Şehir Hastanesi",
+            r"Seka Devlet Hastanesi", r"Derince Eğitim ve Araştırma Hastanesi",
+            r"Körfez Devlet Hastanesi", r"Gölcük Necati Çelik Devlet Hastanesi",
+            r"Karamürsel Devlet Hastanesi", r"Kandıra M. Kazım Dinç Devlet Hastanesi",
+            r"Gebze Fatih Devlet Hastanesi", r"Darıca Farabi Eğitim ve Araştırma Hastanesi",
+            r"Kocaeli Adliyesi", r"Gebze Adliyesi",
+            r"Kocaeli Valiliği", r"Kocaeli Büyükşehir Belediyesi",
+            r"İzmit Belediyesi", r"Gebze Belediyesi", r"Derince Belediyesi",
+            r"Gölcük Belediyesi", r"Körfez Belediyesi", r"Kartepe Belediyesi",
+            r"Başiskele Belediyesi", r"Çayırova Belediyesi", r"Darıca Belediyesi",
+            r"Dilovası Belediyesi", r"Karamürsel Belediyesi", r"Kandıra Belediyesi",
+            r"Kocaelispor Tesisleri", r"Kocaeli Stadyumu", r"İsmetpaşa Stadyumu",
+            r"SEKA Park", r"Seka Park", r"Kent Meydanı", r"Anıtpark Meydanı",
+            r"Cumhuriyet Parkı", r"Yürüyüş Yolu", r"Belsa Plaza",
+            r"Symbol AVM", r"Ncity AVM", r"41 Burda AVM", r"Arasta Park",
+            r"Gebze Center", r"Körfez Center", r"Gölcük Kavaklı Sahili",
+            r"Değirmendere Sahili", r"Karamürsel Sahili", r"Kefken Sahili",
+            r"Kerpe Sahili", r"Cebeci Sahili", r"Kandıra Sahilleri",
+            r"Ormanya", r"Maşukiye", r"Kartepe Kayak Merkezi", r"Kuzuyayla",
+            r"Yuvacık Barajı", r"Sapanca Gölü", r"İzmit Körfezi", r"İzmit Sanayi Sitesi",
+            r"Gebze Organize Sanayi Bölgesi", r"GOSB", r"TOSB", r"Dilovası OSB",
+            r"Arslanbey OSB", r"Kandıra Gıda OSB", r"Körfez Sanayi Sitesi",
+        ]
+
+        for landmark in specific_landmarks:
+            if re.search(rf'\b{landmark}\b', text, re.IGNORECASE):
+                # Orijinal metindeki eşleşmeyi döndür
+                match = re.search(rf'\b({landmark})\b', text, re.IGNORECASE)
+                if match:
+                    return match.group(1).strip()
+
+        # Genel Regex Desenleri (Büyük harfle başlayan Hastane, Park, vb. otoyollar)
         patterns = [
             r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)*\s+(?:Hastanesi|Hastanesi\'nde))',
             r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)*\s+(?:Stadyumu|Stadı))',
             r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)*\s+(?:Parkı|Park))',
             r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)*\s+(?:Meydanı))',
-            r'(D-100|TEM|O-4)',
+            r'(D-100|TEM|O-4|Anadolu Otoyolu|Kuzey Marmara Otoyolu)',
         ]
 
         for pattern in patterns:

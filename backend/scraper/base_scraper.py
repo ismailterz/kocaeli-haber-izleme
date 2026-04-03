@@ -56,15 +56,29 @@ class BaseScraper(ABC):
             resp.encoding = resp.apparent_encoding
             return resp.text
 
+        def _get_with_uc():
+            try:
+                from curl_cffi import requests as crequests
+                resp = crequests.get(url, impersonate="chrome110", timeout=timeout_s)
+                if resp.status_code == 200 and "Just a moment" not in resp.text and "Bir dakika" not in resp.text:
+                    resp.encoding = resp.apparent_encoding
+                    return resp.text
+            except Exception as e:
+                print(f"Curl_cffi error in fetch_text: {e}")
+            return None
+
         try:
             return _get_with_requests()
         except requests.HTTPError as e:
             status = getattr(e.response, "status_code", None)
             if status == 403:
                 try:
-                    return _get_with_cloudscraper()
+                    res = _get_with_cloudscraper()
+                    if res and "Just a moment" not in res:
+                        return res
                 except Exception:
-                    return None
+                    pass
+                return _get_with_uc()
             return None
         except requests.RequestException:
             return None
@@ -92,6 +106,17 @@ class BaseScraper(ABC):
             resp.encoding = resp.apparent_encoding
             return resp.text
 
+        def _get_with_uc():
+            try:
+                from curl_cffi import requests as crequests
+                resp = crequests.get(url, impersonate="chrome110", timeout=20)
+                if resp.status_code == 200 and "Just a moment" not in resp.text and "Bir dakika" not in resp.text:
+                    resp.encoding = resp.apparent_encoding
+                    return resp.text
+            except Exception as e:
+                print(f"Curl_cffi error in fetch_page: {e}")
+            return None
+
         last_err = None
         for attempt in range(3):
             timeout_s = 20 + attempt * 10
@@ -104,10 +129,14 @@ class BaseScraper(ABC):
                 if status == 403:
                     try:
                         html = _get_with_cloudscraper(timeout_s)
-                        if html:
+                        if html and "Just a moment" not in html:
                             return BeautifulSoup(html, "lxml")
                     except Exception as ce:
                         last_err = ce
+                        
+                    html = _get_with_uc()
+                    if html:
+                        return BeautifulSoup(html, "lxml")
                 break
             except requests.RequestException as e:
                 last_err = e

@@ -38,29 +38,6 @@ def create_app():
     return app
 
 
-def run_scraping_job():
-    print("[Scheduler] Otomatik scraping başlatılıyor...")
-    try:
-        from services.scraping_pipeline import ScrapingPipeline
-        pipeline = ScrapingPipeline()
-        pipeline.run()
-    except Exception as e:
-        print(f"[Scheduler] Scraping hatası: {e}")
-
-
-def start_scheduler():
-    schedule.every(6).hours.do(run_scraping_job)
-
-    def scheduler_loop():
-        while True:
-            schedule.run_pending()
-            time.sleep(60)
-
-    thread = threading.Thread(target=scheduler_loop, daemon=True)
-    thread.start()
-    print("[Scheduler] Zamanlayıcı başlatıldı (6 saatte bir)")
-
-
 def fix_data_on_startup():
     try:
         from services.database_service import DatabaseService
@@ -78,7 +55,6 @@ def fix_data_on_startup():
 if __name__ == "__main__":
     app = create_app()
     fix_data_on_startup()
-    start_scheduler()
     app.run(
         host="0.0.0.0",
         port=Config.FLASK_PORT,

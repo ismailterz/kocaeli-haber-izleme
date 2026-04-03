@@ -366,3 +366,13 @@ class SesKocaeliScraper(CommonCMSScraper):
 class BizimYakaScraper(CommonCMSScraper):
     def __init__(self):
         super().__init__("Bizim Yaka", "https://www.bizimyaka.com")
+        
+    def _get_category_pages(self) -> list:
+        categories = [
+            "kocaeli-asayis-haberleri",
+            "kocaeli-son-dakika-haberleri",
+            "kocaeli-gundem-haberleri",
+            "kocaeli-siyaset-haberleri",
+            "kocaeli-ekonomi-haberleri"
+        ]
+        return [f"{self.base_url.rstrip('/')}/{cat}" for cat in categories]

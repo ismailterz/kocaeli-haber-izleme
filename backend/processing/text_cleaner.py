@@ -76,6 +76,9 @@ class TextCleaner:
             return ""
         for pattern in cls.IRRELEVANT_PATTERNS:
             text = re.sub(pattern + r'.*?(?:\n|$)', '', text)
+        
+        # Fazla ve alakasız JS parçaları kalıntıları da silinebilir
+        text = re.sub(r'(?:^|\n)\s*r\]\s*(?:\n|$)', '\n', text)
         return text
 
     @staticmethod

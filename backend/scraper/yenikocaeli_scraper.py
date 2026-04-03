@@ -32,6 +32,9 @@ class YeniKocaeliScraper(BaseScraper):
                 continue
             if "/haber/" in href and href.endswith(".html"):
                 full_url = urljoin(self.base_url, href)
+                # Sadece id içeren haber url'lerini kabul et (örn: .../12345.html). /haber/guncel.html gibi kategori sayfalarını atla
+                if not re.search(r'\d+\.html$', full_url):
+                    continue
                 if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
                     links.add(full_url)
 
@@ -54,6 +57,8 @@ class YeniKocaeliScraper(BaseScraper):
                         continue
                     if "/haber/" in href and href.endswith(".html"):
                         full_url = urljoin(self.base_url, href)
+                        if not re.search(r'\d+\.html$', full_url):
+                            continue
                         if full_url.startswith(("http://", "https://")) and "yenikocaeli.com" in full_url:
                             links.add(full_url)
 
@@ -92,7 +97,7 @@ class YeniKocaeliScraper(BaseScraper):
                     if not loc_tag:
                         continue
                     url = (loc_tag.get_text() or "").strip()
-                    if not url or "/haber/" not in url:
+                    if not url or "/haber/" not in url or not re.search(r'\d+\.html$', url):
                         continue
                     lastmod_tag = u.find("lastmod")
                     lm_dt = None
@@ -114,7 +119,7 @@ class YeniKocaeliScraper(BaseScraper):
             if not loc_tag:
                 continue
             url = (loc_tag.get_text() or "").strip()
-            if not url or "/haber/" not in url:
+            if not url or "/haber/" not in url or not re.search(r'\d+\.html$', url):
                 continue
             lastmod_tag = u.find("lastmod")
             lm_dt = None

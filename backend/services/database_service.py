@@ -264,4 +264,5 @@ class DatabaseService:
 
     def clear_all(self):
         self.db.news.drop()
+        self.db.geocoding_cache.drop()
         self._ensure_indexes()
