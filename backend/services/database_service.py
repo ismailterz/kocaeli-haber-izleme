@@ -277,7 +277,7 @@ class DatabaseService:
         """Tüm haberleri güncel sınıflandırıcı ile yeniden kategorize eder."""
         from processing.classifier import NewsClassifier, NewsCategory
 
-        stats = {"updated": 0, "removed": 0, "unchanged": 0}
+        stats = {"updated": 0, "skipped_diger": 0, "unchanged": 0}
 
         for doc in self.db.news.find({}, {"_id": 1, "title": 1, "content": 1, "category": 1}):
             title = doc.get("title", "")
@@ -286,10 +286,11 @@ class DatabaseService:
 
             new_category, _ = NewsClassifier.classify(title, content)
 
+            # Diğer: kaydı silme (yanlış sınıflandırma veya boş DB ile haritayı bozmamak için)
             if new_category == NewsCategory.DIGER:
-                self.db.news.delete_one({"_id": doc["_id"]})
-                stats["removed"] += 1
-            elif new_category.value != old_category:
+                stats["skipped_diger"] += 1
+                continue
+            if new_category.value != old_category:
                 self.db.news.update_one(
                     {"_id": doc["_id"]},
                     {"$set": {"category": new_category.value}}
@@ -302,4 +303,5 @@ class DatabaseService:
 
     def clear_all(self):
         self.db.news.drop()
+        self.db.geocoding_cache.drop()
         self._ensure_indexes()

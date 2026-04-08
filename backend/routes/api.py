@@ -106,18 +106,16 @@ def get_categories():
 
 @api_bp.route("/scrape", methods=["POST"])
 def trigger_scrape():
-    """Varsayılan: DB sıfırla ve tara. {\"reset_database\": false} ile yalnızca tarama."""
+    """İsteğe bağlı: {\"reset_database\": true} ile önbellek ve haberler silinir; ardından pipeline çalışır."""
     try:
-        reset_database = True
+        reset_database = False
         if request.is_json:
-            body = request.get_json(silent=True)
-            if isinstance(body, dict) and "reset_database" in body:
-                reset_database = bool(body.get("reset_database"))
+            body = request.get_json(silent=True) or {}
+            reset_database = bool(body.get("reset_database"))
 
         db = init_db()
         if reset_database:
             db.clear_all()
-            print("[API] Veritabanı sıfırlandı.")
 
         from services.scraping_pipeline import ScrapingPipeline
         pipeline = ScrapingPipeline()

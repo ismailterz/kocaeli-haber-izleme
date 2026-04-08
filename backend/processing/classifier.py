@@ -1,10 +1,8 @@
 """
 Haber türü sınıflandırma modülü.
 Anahtar kelime tabanlı otomatik sınıflandırma (öncelik sırası ile).
-Hibrit NLP: Kural tabanlı sonuç yetersiz kaldığında sentence-transformers fallback.
 """
 
-import numpy as np
 from enum import Enum
 
 
@@ -17,18 +15,28 @@ class NewsCategory(str, Enum):
     DIGER = "Diğer"
 
 
+# Cinayet / şiddet kelimeleri — Hırsızlık'tan çıkarmak için negatif filtre
+_VIOLENCE_INDICATORS = [
+    "cinayet", "öldürme", "öldürdü", "öldürüldü", "katil",
+    "katili", "katliamı", "bıçakladı", "bıçaklandı", "bıçaklı saldırı",
+    "silahlı saldırı", "silahla vurdu", "silahla vuruldu",
+    "pompalı tüfek", "tabanca", "kurşunladı", "kurşunlandı",
+    "infaz", "ceset", "cesedi", "kan davası",
+    "sokak ortasında öldüren", "saldırı", "saldırgan",
+]
+
+
 CATEGORY_KEYWORDS = {
     NewsCategory.TRAFIK_KAZASI: {
         "primary": [
-            "trafik kazası", "trafik kazasi", "kaza sonucu", "araç kazası",
-            "arac kazasi", "servis kazası", "servis kazasi",
+            "trafik kazası", "trafik kazasi", "trafik kazasında",
+            "kaza sonucu yaralanan", "kaza sonucu ölen",
+            "araç kazası", "arac kazasi", "servis kazası", "servis kazasi",
             "yol kazası", "yol kazasi", "otoyol kazası", "otoyol kazasi",
             "zincirleme kaza", "feci kaza", "kaza meydana geldi",
             "tır kazası", "otobüs kazası", "motosiklet kazası",
             "kaza yapan", "kazada yaralanan", "kazada ölen",
-            "kazada hayatını kaybetti", "trafik kazasında",
-            # Yalın "kaza" çıkarıldı (spor/sağlık metaforlarında çok yanlış pozitif üretiyordu).
-            # Araç/trafik bağlamına daha yakın fiiller:
+            "kazada hayatını kaybetti",
             "çarpıştı", "takla attı", "şarampole yuvarlandı", "devrildi",
             "kontrolden çıktı", "bariyerlere çarptı", "refüje çıktı",
         ],
@@ -91,23 +99,23 @@ CATEGORY_KEYWORDS = {
     NewsCategory.KULTUREL_ETKINLIK: {
         "primary": [
             "konser", "festival", "sergi", "tiyatro",
-            "gösteri", "şenlik", "panayır",
-            "anma töreni", "bayram kutlaması",
+            "etkinlik", "gösteri", "şenlik", "panayır",
+            "kutlama", "anma töreni", "bayram kutlaması",
             "kültür merkezi", "sanat etkinliği", "müzik dinletisi",
+            "sinema", "film gösterimi", "müze",
+            "kitap fuarı", "fuar", "kongre",
+            "dünya kupası", "şampiyona", "şampiyonluk", "turnuva",
+            "olimpiyat", "spor müsabakası", "maç coşkusu",
         ],
         "secondary": [
             "sahne alacak", "sahneye çıkacak", "biletler satışa",
             "ücretsiz etkinlik", "söyleşi", "imza günü",
             "kültürel program", "sanat galerisi",
             "halk oyunları", "dans gösterisi",
-            "film gösterimi", "müze",
-            "kitap fuarı", "fuar", "kongre",
+            "coşku", "coşkusu",
         ],
     },
 }
-
-# "etkinlik", "kutlama", "sinema" primary'den secondary'ye taşındı / çıkarıldı
-# "çaldı" hırsızlık primary'den çıkarıldı (bağlam dışı eşleşme riski: müzik çaldı vb.)
 
 PRIORITY_ORDER = [
     NewsCategory.TRAFIK_KAZASI,
@@ -117,44 +125,11 @@ PRIORITY_ORDER = [
     NewsCategory.KULTUREL_ETKINLIK,
 ]
 
-# Hibrit NLP: Her kategori için semantik referans cümleler
-CATEGORY_ANCHORS = {
-    NewsCategory.TRAFIK_KAZASI: [
-        "Trafik kazasında araçlar çarpıştı, yaralılar hastaneye kaldırıldı.",
-        "Otomobil ile kamyon çarpışması sonucu sürücü hayatını kaybetti.",
-        "Zincirleme trafik kazası meydana geldi, yol trafiğe kapatıldı.",
-    ],
-    NewsCategory.YANGIN: [
-        "Evde çıkan yangın itfaiye ekiplerince söndürüldü.",
-        "Fabrikada büyük yangın, alevler saatlerce kontrol altına alınamadı.",
-        "Orman yangınında hektar alan kül oldu, itfaiye müdahale etti.",
-    ],
-    NewsCategory.ELEKTRIK_KESINTISI: [
-        "Planlı elektrik kesintisi nedeniyle birçok mahalle karanlıkta kaldı.",
-        "Trafo arızası sonucu elektrikler kesildi, SEDAŞ ekipleri çalışıyor.",
-        "Elektrik kesintisi saatlerce sürdü, vatandaşlar mağdur oldu.",
-    ],
-    NewsCategory.HIRSIZLIK: [
-        "Hırsızlar evi soydu, polis güvenlik kameralarını inceliyor.",
-        "Kapkaççı yakalandı, çalınan cüzdan sahibine teslim edildi.",
-        "Oto hırsızlığı şüphelisi suçüstü yakalanarak gözaltına alındı.",
-    ],
-    NewsCategory.KULTUREL_ETKINLIK: [
-        "Büyük konser etkinliği düzenlendi, binlerce kişi katıldı.",
-        "Tiyatro festivali başladı, birçok oyun sahnelenecek.",
-        "Sanat sergisi açıldı, eserler ücretsiz ziyaret edilebilecek.",
-    ],
-}
-
 
 class NewsClassifier:
 
-    _nlp_model = None
-    _anchor_embeddings = None
-
     @staticmethod
     def _calculate_score(text: str, keywords: dict) -> tuple[float, bool]:
-        """Skor ve en az bir primary eşleşmesi olup olmadığını döner."""
         text_lower = text.lower()
         score = 0.0
         has_primary = False
@@ -167,78 +142,15 @@ class NewsClassifier:
                 score += 1.0
         return score, has_primary
 
-    @classmethod
-    def _get_nlp_model(cls):
-        """Lazy-load sentence-transformers modeli (DuplicateDetector ile aynı model)."""
-        if cls._nlp_model is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-                cls._nlp_model = SentenceTransformer(
-                    "emrecan/bert-base-turkish-cased-mean-nli-stsb-tr"
-                )
-                print("[Classifier] NLP modeli yüklendi (sentence-transformers).")
-            except Exception as e:
-                print(f"[Classifier] NLP modeli yüklenemedi: {e}")
-                return None
-        return cls._nlp_model
-
-    @classmethod
-    def _get_anchor_embeddings(cls):
-        """Anchor cümlelerinin embedding'lerini hesapla ve cache'le."""
-        if cls._anchor_embeddings is not None:
-            return cls._anchor_embeddings
-
-        model = cls._get_nlp_model()
-        if model is None:
-            return None
-
-        cls._anchor_embeddings = {}
-        for category, anchors in CATEGORY_ANCHORS.items():
-            embeddings = model.encode(anchors, show_progress_bar=False)
-            # Ortalama embedding (centroid)
-            cls._anchor_embeddings[category] = np.mean(embeddings, axis=0)
-
-        return cls._anchor_embeddings
-
-    @classmethod
-    def _nlp_classify(cls, title: str, content: str) -> tuple[NewsCategory | None, float]:
-        """
-        sentence-transformers ile semantik sınıflandırma.
-        Kural tabanlı sonuç yetersiz kaldığında fallback olarak çalışır.
-        """
-        model = cls._get_nlp_model()
-        anchor_embeddings = cls._get_anchor_embeddings()
-        if model is None or anchor_embeddings is None:
-            return None, 0.0
-
-        # Performans için NLP'ye gönderilen metni daha da kısa tutuyoruz (500 -> 250 karakter)
-        text = f"{title} {content[:250]}"
-        text_embedding = model.encode(text, show_progress_bar=False)
-
-        from sklearn.metrics.pairwise import cosine_similarity
-
-        best_category = None
-        best_score = -1.0
-
-        for category, anchor_emb in anchor_embeddings.items():
-            sim = cosine_similarity(
-                [text_embedding], [anchor_emb]
-            )[0][0]
-            if sim > best_score:
-                best_score = sim
-                best_category = category
-
-        # Minimum benzerlik eşiği: 0.35
-        if best_score < 0.35:
-            return None, best_score
-
-        return best_category, float(best_score)
+    @staticmethod
+    def _has_violence_indicators(text: str) -> bool:
+        text_lower = text.lower()
+        return any(w in text_lower for w in _VIOLENCE_INDICATORS)
 
     @classmethod
     def classify(cls, title: str, content: str) -> tuple[NewsCategory, dict]:
-        # Çöp / Genel Başlık Filtresi (örn: sadece "Yangın", "Asayiş", "Foto Galeri")
-        if not title or len(title.strip()) < 8 or "kategori" in title.lower() or "galeri" in title.lower():
-            return NewsCategory.DIGER, {"_reason": "Çok kısa veya genel/alakasız başlık tespit edildi"}
+        if not title or len(title.strip()) < 3:
+            return NewsCategory.DIGER, {}
 
         combined_text = f"{title} {title} {content}"
 
@@ -250,11 +162,16 @@ class NewsClassifier:
             scores[category] = score
             has_primary_map[category] = has_primary
 
-        # En az bir primary keyword eşleşmesi olan kategoriler arasından seç
         candidates = {c: s for c, s in scores.items() if has_primary_map.get(c)}
 
         if not candidates:
             return NewsCategory.DIGER, scores
+
+        # Cinayet/şiddet içerikli haberleri Hırsızlık'tan çıkar
+        if cls._has_violence_indicators(combined_text):
+            candidates.pop(NewsCategory.HIRSIZLIK, None)
+            if not candidates:
+                return NewsCategory.DIGER, scores
 
         best_category = max(candidates, key=candidates.get)
         if candidates[best_category] < 3.0:
@@ -266,7 +183,7 @@ class NewsClassifier:
                 if category in tied:
                     return category, scores
 
-        return NewsCategory.DIGER, scores
+        return best_category, scores
 
     @classmethod
     def get_keywords_used(cls, title: str, content: str, category: NewsCategory) -> list[str]:
