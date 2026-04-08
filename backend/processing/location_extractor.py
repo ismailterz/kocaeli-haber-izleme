@@ -187,15 +187,31 @@ class LocationExtractor:
                 neighborhood = cls.extract_neighborhood(combined, district)
 
         # --- Sonuç oluştur ---
-        location_text_parts = []
-        if specific:
-            location_text_parts.append(specific)
-        if street:
-            location_text_parts.append(street)
+        def _norm_part(value: str) -> str:
+            return re.sub(r"\s+", " ", (value or "").strip()).lower()
+
+        def _add_unique(parts: list[str], value: str | None):
+            if not value:
+                return
+            norm = _norm_part(value)
+            if not norm:
+                return
+            existing = {_norm_part(p) for p in parts}
+            if norm in existing:
+                return
+            parts.append(value)
+
+        location_text_parts: list[str] = []
+        _add_unique(location_text_parts, specific)
+        _add_unique(location_text_parts, street)
+
+        # Aynı kelime hem ilçe hem "mahalle" olarak yakalanabiliyor (örn: "Körfez Mahallesi, Körfez").
+        # Bu durumda mahalle parçasını eklemeyip tekilleştiriyoruz.
         if neighborhood:
-            location_text_parts.append(f"{neighborhood} Mahallesi")
-        if district:
-            location_text_parts.append(district)
+            if not district or _norm_part(neighborhood) != _norm_part(district):
+                _add_unique(location_text_parts, f"{neighborhood} Mahallesi")
+
+        _add_unique(location_text_parts, district)
 
         if not location_text_parts:
             return None

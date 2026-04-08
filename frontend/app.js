@@ -166,6 +166,24 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function dedupeCommaSeparatedText(text) {
+    const raw = (text == null ? "" : String(text)).trim();
+    if (!raw) return "";
+    const parts = raw
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const p of parts) {
+        const key = p.toLocaleLowerCase("tr-TR");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(p);
+    }
+    return out.join(", ");
+}
+
 function openSourceDetailModal() {
     const modal = document.getElementById("sourceDetailModal");
     modal.classList.add("is-open");
@@ -354,7 +372,9 @@ function addMarker(news) {
               })
             : "Tarih bilinmiyor";
 
-        const locationText = (news.location && news.location.text) ? String(news.location.text) : "";
+        const locationText = dedupeCommaSeparatedText(
+            news.location && news.location.text ? String(news.location.text) : ""
+        );
 
         const sourceLinksHtml = sources
             .filter((s) => s.url)
